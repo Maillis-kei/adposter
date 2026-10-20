@@ -177,16 +177,27 @@ def compose_poster(
     if base_img.size != (width, height):
         base_img = base_img.resize((width, height), Image.Resampling.LANCZOS)
 
-    # 3. Apply subtle darkening vignette overlay for maximum readability
+    # 3. Apply soft cinematic vignette overlay (preserve central background vividness)
     overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     overlay_draw = ImageDraw.Draw(overlay)
 
-    # Dark gradient from top (for headline) and bottom (for church banner)
+    # Soft dark gradient at very top and bottom only to protect text contrast
     for y in range(height):
-        top_alpha = int(max(0, 150 - (y / 3.5)))
-        bottom_alpha = int(max(0, (y - (height - 350)) / 2.2))
-        alpha = min(220, top_alpha + bottom_alpha + 30)
-        overlay_draw.line([(0, y), (width, y)], fill=(8, 12, 24, alpha))
+        # Top gradient: fades out by y=450
+        if y < 450:
+            top_alpha = int(120 * (1 - (y / 450) ** 1.5))
+        else:
+            top_alpha = 0
+
+        # Bottom gradient: fades in starting y=1550
+        if y > 1550:
+            bottom_alpha = int(140 * ((y - 1550) / (height - 1550)) ** 1.2)
+        else:
+            bottom_alpha = 0
+
+        alpha = min(180, top_alpha + bottom_alpha)
+        if alpha > 0:
+            overlay_draw.line([(0, y), (width, y)], fill=(6, 10, 20, alpha))
 
     poster = Image.alpha_composite(base_img, overlay)
     draw = ImageDraw.Draw(poster)
@@ -195,11 +206,11 @@ def compose_poster(
     COLOR_GOLD = (245, 208, 98, 255)
     COLOR_LIGHT_GOLD = (255, 238, 173, 255)
     COLOR_WHITE = (255, 255, 255, 255)
-    COLOR_OFFWHITE = (235, 240, 248, 255)
-    COLOR_SCRIPTURE = (210, 225, 245, 255)
-    COLOR_ACCENT_BG = (220, 165, 35, 230)
-    CARD_BG_COLOR = (15, 23, 42, 175)
-    CARD_BORDER_COLOR = (245, 208, 98, 70)
+    COLOR_OFFWHITE = (240, 245, 252, 255)
+    COLOR_SCRIPTURE = (215, 235, 255, 255)
+    COLOR_ACCENT_BG = (220, 165, 35, 240)
+    CARD_BG_COLOR = (12, 18, 32, 115)       # Elegant glassmorphism (translucent)
+    CARD_BORDER_COLOR = (245, 208, 98, 85)   # Subtle golden luminous border
 
     # 4. Render Top Section: Date & Category Tag
     current_y = 110
