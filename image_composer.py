@@ -1,13 +1,13 @@
-"""Graphic Composer Module (Pillow High-Resolution 9:16 Poster Renderer).
+"""Graphic Composer Module (Multi-Template High-Resolution 9:16 Poster Renderer).
 
-Composes production-ready evangelical gospel posters (1080x1920):
-1. Background scaling & aesthetic dimming / soft glassmorphic card overlays
-2. Top: Date tag & Large Calligraphy Headline (PyeongChang Peace Bold with drop shadows)
-3. Middle: 3~4 Points with golden brush badges [1], [2], [3], subtitles, meditations, and scripture quotes
-4. Bottom: Inspirational blessing call-to-action
-5. Footer: Church Branding banner ('포이에마성령교회') & conditional contact info
+Solves design monotony by dynamically switching between 3 distinct layouts:
+1. LAYOUT_CARDS: Modern Glassmorphic 3-Card structure (Actionable points)
+2. LAYOUT_SCRIPTURE_HERO: Majestic Gold Border Frame with Large Scripture Highlight
+3. LAYOUT_EDITORIAL: Modern Clean Magazine Style with elegant typography
 """
 
+from datetime import datetime
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -16,35 +16,32 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from utils.font_downloader import ensure_fonts_exist
 
 logger = logging.getLogger(__name__)
-
 BASE_DIR = Path(__file__).resolve().parent
+
+# Color Palette Constants
+COLOR_GOLD = (245, 208, 98, 255)
+COLOR_LIGHT_GOLD = (255, 238, 173, 255)
+COLOR_WHITE = (255, 255, 255, 255)
+COLOR_OFFWHITE = (240, 245, 252, 255)
+COLOR_SCRIPTURE = (215, 235, 255, 255)
+COLOR_ACCENT_BG = (220, 165, 35, 240)
+CARD_BG_COLOR = (12, 18, 32, 120)
+CARD_BORDER_COLOR = (245, 208, 98, 85)
 
 
 def _load_font(
     font_path: Optional[Path], size: int, fallback_family: str = "arial.ttf"
 ) -> ImageFont.FreeTypeFont:
-    """Safely loads a FreeType font or falls back gracefully to system default."""
     if font_path and font_path.exists():
         try:
             return ImageFont.truetype(str(font_path), size)
-        except Exception as e:
-            logger.warning(
-                f"Failed to load font from {font_path}: {e}. Trying fallback."
-            )
-
-    # Try common system fallbacks
-    for cand in [
-        "malgun.ttf",
-        "gulim.ttc",
-        "AppleGothic.ttf",
-        "DejaVuSans.ttf",
-        fallback_family,
-    ]:
+        except Exception:
+            pass
+    for cand in ["malgun.ttf", "gulim.ttc", "AppleGothic.ttf", fallback_family]:
         try:
             return ImageFont.truetype(cand, size)
         except Exception:
             continue
-
     return ImageFont.load_default()
 
 
@@ -53,45 +50,29 @@ def _draw_text_with_shadow(
     xy: Tuple[float, float],
     text: str,
     font: ImageFont.FreeTypeFont,
-    fill_color: Tuple[int, int, int, int] = (255, 255, 255, 255),
-    shadow_color: Tuple[int, int, int, int] = (0, 0, 0, 160),
+    fill_color: Tuple[int, int, int, int] = COLOR_WHITE,
+    shadow_color: Tuple[int, int, int, int] = (0, 0, 0, 170),
     shadow_offset: Tuple[int, int] = (2, 3),
     align: str = "left",
 ) -> None:
-    """Renders text with a subtle drop-shadow for superior readability."""
     x, y = xy
-    # Draw shadow
-    draw.text(
-        (x + shadow_offset[0], y + shadow_offset[1]),
-        text,
-        font=font,
-        fill=shadow_color,
-        align=align,
-    )
-    # Draw main text
+    draw.text((x + shadow_offset[0], y + shadow_offset[1]), text, font=font, fill=shadow_color, align=align)
     draw.text((x, y), text, font=font, fill=fill_color, align=align)
 
 
-def _wrap_text(
-    text: str, font: ImageFont.FreeTypeFont, max_width: int
-) -> List[str]:
-    """Wraps Korean and multilingual text according to pixel width."""
+def _wrap_text(text: str, font: ImageFont.FreeTypeFont, max_width: int) -> List[str]:
     lines: List[str] = []
     paragraphs = text.split("\n")
-
     for paragraph in paragraphs:
         if not paragraph.strip():
             lines.append("")
             continue
-
         words = paragraph.split(" ")
         current_line = ""
-
         for word in words:
             test_line = f"{current_line} {word}".strip()
             bbox = font.getbbox(test_line)
             w = bbox[2] - bbox[0]
-
             if w <= max_width:
                 current_line = test_line
             else:
@@ -99,7 +80,6 @@ def _wrap_text(
                     lines.append(current_line)
                     current_line = word
                 else:
-                    # Single word exceeds max_width, character by character break
                     sub_line = ""
                     for ch in word:
                         test_sub = sub_line + ch
@@ -110,430 +90,324 @@ def _wrap_text(
                             lines.append(sub_line)
                             sub_line = ch
                     current_line = sub_line
-
         if current_line:
             lines.append(current_line)
-
     return lines
 
 
+# ===========================================================================
+# Layout Engine 1: Modern Glassmorphic Cards (실천 지침 3단 카드형)
+# ===========================================================================
+def _render_layout_cards(
+    draw: ImageDraw.ImageDraw,
+    width: int,
+    height: int,
+    content: Dict[str, Any],
+    fonts: Dict[str, ImageFont.FreeTypeFont],
+) -> None:
+    current_y = 110
+
+    # Top Pill Badge
+    tag_text = "✦ 오늘의 말씀 실천 지침 ✦"
+    tag_bbox = fonts["category"].getbbox(tag_text)
+    tag_w = tag_bbox[2] - tag_bbox[0]
+    pill_padding = 18
+    draw.rounded_rectangle(
+        [(width - tag_w) // 2 - pill_padding, current_y, (width + tag_w) // 2 + pill_padding, current_y + 44],
+        radius=20, fill=(15, 24, 42, 210), outline=COLOR_GOLD, width=1
+    )
+    draw.text(((width - tag_w) // 2, current_y + 7), tag_text, font=fonts["category"], fill=COLOR_GOLD)
+    current_y += 75
+
+    # Headline
+    headline = content.get("headline", "")
+    for line in _wrap_text(headline, fonts["headline"], width - 180):
+        lw = fonts["headline"].getbbox(line)[2] - fonts["headline"].getbbox(line)[0]
+        _draw_text_with_shadow(draw, ((width - lw) // 2, current_y), line, fonts["headline"], COLOR_WHITE, shadow_offset=(3, 5))
+        current_y += 82
+
+    # Sub-headline
+    sub = content.get("sub_headline", "")
+    if sub:
+        for sline in _wrap_text(sub, fonts["sub_headline"], width - 200):
+            sw = fonts["sub_headline"].getbbox(sline)[2] - fonts["sub_headline"].getbbox(sline)[0]
+            _draw_text_with_shadow(draw, ((width - sw) // 2, current_y), sline, fonts["sub_headline"], COLOR_LIGHT_GOLD)
+            current_y += 44
+    current_y += 20
+
+    # 3 Glass Cards
+    card_x = 80
+    card_w = width - (card_x * 2)
+    for i, pt in enumerate(content.get("points", [])[:3], 1):
+        p_title = pt.get("title", "")
+        p_desc = pt.get("description", "")
+        sc = pt.get("scripture", {})
+        sc_txt = f"\"{sc.get('text', '')}\" ({sc.get('reference', '')})"
+
+        desc_lines = _wrap_text(p_desc, fonts["point_desc"], card_w - 130)
+        sc_lines = _wrap_text(sc_txt, fonts["scripture_txt"], card_w - 130)
+        card_h = 55 + (len(desc_lines) * 34) + (len(sc_lines) * 32) + 26
+
+        draw.rounded_rectangle([card_x, current_y, card_x + card_w, current_y + card_h], radius=18, fill=CARD_BG_COLOR, outline=CARD_BORDER_COLOR, width=2)
+
+        # Badge
+        bx, by = card_x + 22, current_y + 20
+        draw.rounded_rectangle([bx, by, bx + 44, by + 44], radius=12, fill=COLOR_ACCENT_BG)
+        b_txt = str(i)
+        btw = fonts["badge"].getbbox(b_txt)[2] - fonts["badge"].getbbox(b_txt)[0]
+        draw.text((bx + (44 - btw) // 2, by + 6), b_txt, font=fonts["badge"], fill=(20, 20, 20, 255))
+
+        # Title
+        _draw_text_with_shadow(draw, (bx + 62, by + 6), p_title, fonts["point_title"], COLOR_GOLD)
+
+        ty = by + 58
+        for dl in desc_lines:
+            _draw_text_with_shadow(draw, (bx + 10, ty), dl, fonts["point_desc"], COLOR_OFFWHITE)
+            ty += 34
+        ty += 4
+        for sl in sc_lines:
+            _draw_text_with_shadow(draw, (bx + 15, ty), sl, fonts["scripture_txt"], COLOR_SCRIPTURE)
+            ty += 32
+
+        current_y += card_h + 20
+
+    # CTA
+    cta = content.get("call_to_action", "")
+    for cl in _wrap_text(f"“ {cta} ”", fonts["cta"], width - 180):
+        cw = fonts["cta"].getbbox(cl)[2] - fonts["cta"].getbbox(cl)[0]
+        _draw_text_with_shadow(draw, ((width - cw) // 2, current_y + 10), cl, fonts["cta"], COLOR_LIGHT_GOLD)
+        current_y += 42
+
+
+# ===========================================================================
+# Layout Engine 2: Scripture Hero (성경 본문 강조형 / 황금 프레임 묵상)
+# ===========================================================================
+def _render_layout_scripture_hero(
+    draw: ImageDraw.ImageDraw,
+    width: int,
+    height: int,
+    content: Dict[str, Any],
+    fonts: Dict[str, ImageFont.FreeTypeFont],
+) -> None:
+    current_y = 120
+
+    # Top Scripture Banner Tag
+    tag_text = "✦ 오늘의 핵심 성경 말씀 ✦"
+    tw = fonts["category"].getbbox(tag_text)[2] - fonts["category"].getbbox(tag_text)[0]
+    _draw_text_with_shadow(draw, ((width - tw) // 2, current_y), tag_text, fonts["category"], COLOR_GOLD)
+    current_y += 50
+
+    # Headline
+    headline = content.get("headline", "")
+    for line in _wrap_text(headline, fonts["headline"], width - 180):
+        lw = fonts["headline"].getbbox(line)[2] - fonts["headline"].getbbox(line)[0]
+        _draw_text_with_shadow(draw, ((width - lw) // 2, current_y), line, fonts["headline"], COLOR_WHITE, shadow_offset=(3, 5))
+        current_y += 84
+    current_y += 25
+
+    # Center Ornate Golden Frame for Primary Scripture
+    frame_x = 75
+    frame_w = width - (frame_x * 2)
+    first_pt = content.get("points", [{}])[0]
+    sc_obj = first_pt.get("scripture", {})
+    main_sc_text = sc_obj.get("text", "")
+    main_sc_ref = sc_obj.get("reference", "")
+
+    sc_lines = _wrap_text(f"“ {main_sc_text} ”", fonts["sub_headline"], frame_w - 80)
+    frame_h = max(240, 90 + len(sc_lines) * 50)
+
+    # Multi-layered frame
+    draw.rounded_rectangle([frame_x, current_y, frame_x + frame_w, current_y + frame_h], radius=22, fill=(10, 16, 32, 160), outline=COLOR_GOLD, width=3)
+    draw.rounded_rectangle([frame_x + 8, current_y + 8, frame_x + frame_w - 8, current_y + frame_h - 8], radius=16, fill=None, outline=(245, 208, 98, 70), width=1)
+
+    # Render Main Scripture inside Frame
+    sy = current_y + 35
+    for sl in sc_lines:
+        sw = fonts["sub_headline"].getbbox(sl)[2] - fonts["sub_headline"].getbbox(sl)[0]
+        _draw_text_with_shadow(draw, ((width - sw) // 2, sy), sl, fonts["sub_headline"], COLOR_LIGHT_GOLD, shadow_offset=(2, 3))
+        sy += 50
+
+    # Reference citation
+    rw = fonts["point_title"].getbbox(f"— {main_sc_ref} —")[2] - fonts["point_title"].getbbox(f"— {main_sc_ref} —")[0]
+    _draw_text_with_shadow(draw, ((width - rw) // 2, sy + 10), f"— {main_sc_ref} —", fonts["point_title"], COLOR_GOLD)
+    current_y += frame_h + 40
+
+    # 3 Grace Points Bullet list (Spacious & Meditative)
+    for pt in content.get("points", [])[:3]:
+        p_title = pt.get("title", "")
+        p_desc = pt.get("description", "")
+
+        # Bullet point symbol
+        draw.text((frame_x + 20, current_y), "✦", font=fonts["point_title"], fill=COLOR_GOLD)
+        _draw_text_with_shadow(draw, (frame_x + 60, current_y), p_title, fonts["point_title"], COLOR_WHITE)
+        current_y += 46
+
+        for dl in _wrap_text(p_desc, fonts["point_desc"], frame_w - 70):
+            _draw_text_with_shadow(draw, (frame_x + 60, current_y), dl, fonts["point_desc"], COLOR_OFFWHITE)
+            current_y += 34
+        current_y += 18
+
+    # CTA
+    cta = content.get("call_to_action", "")
+    for cl in _wrap_text(f"“ {cta} ”", fonts["cta"], width - 180):
+        cw = fonts["cta"].getbbox(cl)[2] - fonts["cta"].getbbox(cl)[0]
+        _draw_text_with_shadow(draw, ((width - cw) // 2, current_y + 10), cl, fonts["cta"], COLOR_LIGHT_GOLD)
+        current_y += 40
+
+
+# ===========================================================================
+# Layout Engine 3: Editorial Minimal (매거진 감성 에디토리얼형)
+# ===========================================================================
+def _render_layout_editorial(
+    draw: ImageDraw.ImageDraw,
+    width: int,
+    height: int,
+    content: Dict[str, Any],
+    fonts: Dict[str, ImageFont.FreeTypeFont],
+) -> None:
+    current_y = 110
+    date_str = content.get("date_str", "")
+
+    # Top Date Bar & Issue Tag
+    draw.line([(80, current_y), (width - 80, current_y)], fill=COLOR_GOLD, width=2)
+    current_y += 16
+    draw.text((85, current_y), f"DAILY DEVOTION • {date_str}", font=fonts["point_desc"], fill=COLOR_LIGHT_GOLD)
+    tw = fonts["point_desc"].getbbox("POIEMA WORSHIP")[2] - fonts["point_desc"].getbbox("POIEMA WORSHIP")[0]
+    draw.text((width - 85 - tw, current_y), "POIEMA WORSHIP", font=fonts["point_desc"], fill=COLOR_GOLD)
+    current_y += 50
+
+    # Massive Headline (Left Aligned Modern Editorial)
+    headline = content.get("headline", "")
+    for line in _wrap_text(headline, fonts["headline"], width - 160):
+        _draw_text_with_shadow(draw, (85, current_y), line, fonts["headline"], COLOR_WHITE, shadow_offset=(3, 5))
+        current_y += 86
+
+    sub = content.get("sub_headline", "")
+    if sub:
+        for sline in _wrap_text(sub, fonts["sub_headline"], width - 160):
+            _draw_text_with_shadow(draw, (85, current_y), sline, fonts["sub_headline"], COLOR_LIGHT_GOLD)
+            current_y += 44
+    current_y += 35
+
+    # Translucent Essay Panel
+    box_x = 75
+    box_w = width - (box_x * 2)
+    box_h = 750
+
+    draw.rounded_rectangle([box_x, current_y, box_x + box_w, current_y + box_h], radius=16, fill=(10, 16, 28, 135), outline=(245, 208, 98, 90), width=1)
+
+    ey = current_y + 36
+    for idx, pt in enumerate(content.get("points", [])[:3], 1):
+        p_title = pt.get("title", "")
+        p_desc = pt.get("description", "")
+        sc = pt.get("scripture", {})
+        sc_txt = f"{sc.get('reference', '')}: {sc.get('text', '')}"
+
+        # Section Header
+        draw.text((box_x + 30, ey), f"0{idx}.", font=fonts["badge"], fill=COLOR_GOLD)
+        _draw_text_with_shadow(draw, (box_x + 80, ey), p_title, fonts["point_title"], COLOR_WHITE)
+        ey += 46
+
+        for dl in _wrap_text(p_desc, fonts["point_desc"], box_w - 70):
+            _draw_text_with_shadow(draw, (box_x + 35, ey), dl, fonts["point_desc"], COLOR_OFFWHITE)
+            ey += 34
+        ey += 4
+
+        for sl in _wrap_text(f"“ {sc_txt} ”", fonts["scripture_txt"], box_w - 70):
+            _draw_text_with_shadow(draw, (box_x + 35, ey), sl, fonts["scripture_txt"], COLOR_SCRIPTURE)
+            ey += 32
+        ey += 24
+
+    current_y += box_h + 35
+
+    # Bottom CTA
+    cta = content.get("call_to_action", "")
+    for cl in _wrap_text(f"“ {cta} ”", fonts["cta"], width - 180):
+        cw = fonts["cta"].getbbox(cl)[2] - fonts["cta"].getbbox(cl)[0]
+        _draw_text_with_shadow(draw, ((width - cw) // 2, current_y), cl, fonts["cta"], COLOR_LIGHT_GOLD)
+        current_y += 40
+
+
+# ===========================================================================
+# Master Poster Composer (Selects Layout Dynamically)
+# ===========================================================================
 def compose_poster(
     bg_image_path: Path,
     content: Dict[str, Any],
     config: Dict[str, Any],
     output_path: Path,
 ) -> Path:
-    """Renders the complete 9:16 poster composition.
-
-    Args:
-        bg_image_path: Path to background artwork (PNG/JPG)
-        content: Dictionary containing theme, headline, points, call_to_action
-        config: Configuration loaded from config.yaml
-        output_path: Destination path for final rendered poster
-
-    Returns:
-        Path to output poster
-    """
     width = config.get("image_generation", {}).get("width", 1080)
     height = config.get("image_generation", {}).get("height", 1920)
 
-    # 1. Ensure fonts are downloaded and loaded
+    # 1. Fonts setup
     fonts_map = ensure_fonts_exist(BASE_DIR / "fonts")
-    headline_font_file = config.get("fonts", {}).get(
-        "headline", "PyeongChangPeace-Bold.otf"
-    )
-    body_bold_font_file = config.get("fonts", {}).get(
-        "body_bold", "Pretendard-Bold.otf"
-    )
-    body_reg_font_file = config.get("fonts", {}).get(
-        "body_regular", "Pretendard-Regular.otf"
-    )
+    f_headline_path = fonts_map.get(config.get("fonts", {}).get("headline", "PyeongChangPeace-Bold.otf"))
+    f_bold_path = fonts_map.get(config.get("fonts", {}).get("body_bold", "Pretendard-Bold.otf"))
+    f_reg_path = fonts_map.get(config.get("fonts", {}).get("body_regular", "Pretendard-Regular.otf"))
 
-    f_headline_path = fonts_map.get(headline_font_file)
-    f_bold_path = fonts_map.get(body_bold_font_file)
-    f_reg_path = fonts_map.get(body_reg_font_file)
+    fonts = {
+        "headline": _load_font(f_headline_path, 72),
+        "sub_headline": _load_font(f_bold_path, 34),
+        "category": _load_font(f_bold_path, 30),
+        "badge": _load_font(f_bold_path, 28),
+        "point_title": _load_font(f_bold_path, 32),
+        "point_desc": _load_font(f_reg_path, 25),
+        "scripture_txt": _load_font(f_reg_path, 23),
+        "cta": _load_font(f_bold_path, 30),
+        "church_name": _load_font(f_headline_path, 44),
+        "church_sub": _load_font(f_reg_path, 22),
+    }
 
-    font_date = _load_font(f_bold_path, 26)
-    font_category = _load_font(f_bold_path, 30)
-    font_headline = _load_font(f_headline_path, 72)
-    font_sub_headline = _load_font(f_bold_path, 34)
-    font_badge = _load_font(f_bold_path, 28)
-    font_point_title = _load_font(f_bold_path, 34)
-    font_point_desc = _load_font(f_reg_path, 26)
-    font_scripture_ref = _load_font(f_bold_path, 24)
-    font_scripture_txt = _load_font(f_reg_path, 24)
-    font_cta = _load_font(f_bold_path, 32)
-    font_church_name = _load_font(f_headline_path, 44)
-    font_church_sub = _load_font(f_reg_path, 22)
-
-    # 2. Open and scale background
+    # 2. Base Background
     if bg_image_path.exists():
         base_img = Image.open(bg_image_path).convert("RGBA")
     else:
-        from utils.image_generator import generate_fallback_background
-
-        base_img = generate_fallback_background(width, height).convert("RGBA")
+        from utils.image_generator import generate_dynamic_background_artwork
+        base_img = generate_dynamic_background_artwork("2026.10.21", "은혜").convert("RGBA")
 
     if base_img.size != (width, height):
         base_img = base_img.resize((width, height), Image.Resampling.LANCZOS)
 
-    # 3. Apply soft cinematic vignette overlay (preserve central background vividness)
-    overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    overlay_draw = ImageDraw.Draw(overlay)
-
-    # Soft dark gradient at very top and bottom only to protect text contrast
-    for y in range(height):
-        # Top gradient: fades out by y=450
-        if y < 450:
-            top_alpha = int(120 * (1 - (y / 450) ** 1.5))
-        else:
-            top_alpha = 0
-
-        # Bottom gradient: fades in starting y=1550
-        if y > 1550:
-            bottom_alpha = int(140 * ((y - 1550) / (height - 1550)) ** 1.2)
-        else:
-            bottom_alpha = 0
-
-        alpha = min(180, top_alpha + bottom_alpha)
-        if alpha > 0:
-            overlay_draw.line([(0, y), (width, y)], fill=(6, 10, 20, alpha))
-
-    poster = Image.alpha_composite(base_img, overlay)
+    poster = base_img.copy()
     draw = ImageDraw.Draw(poster)
 
-    # Palettes
-    COLOR_GOLD = (245, 208, 98, 255)
-    COLOR_LIGHT_GOLD = (255, 238, 173, 255)
-    COLOR_WHITE = (255, 255, 255, 255)
-    COLOR_OFFWHITE = (240, 245, 252, 255)
-    COLOR_SCRIPTURE = (215, 235, 255, 255)
-    COLOR_ACCENT_BG = (220, 165, 35, 240)
-    CARD_BG_COLOR = (12, 18, 32, 115)       # Elegant glassmorphism (translucent)
-    CARD_BORDER_COLOR = (245, 208, 98, 85)   # Subtle golden luminous border
+    # 3. Dynamic Layout Selection based on Date & Theme
+    date_str = content.get("date_str", "")
+    theme_str = content.get("theme", "")
+    layout_seed = int(hashlib.md5(f"{date_str}_{theme_str}".encode()).hexdigest(), 16)
+    layout_mode = layout_seed % 3
 
-    # 4. Render Top Section: Date & Category Tag
-    current_y = 110
-    date_str = content.get("date_str", "2026.10.21")
-    church_name = config.get("church", {}).get("name", "포이에마성령교회")
-
-    # Pill badge for top category
-    tag_text = f"✦ {church_name} 일간 말씀 묵상 ✦"
-    tag_bbox = font_category.getbbox(tag_text)
-    tag_w = tag_bbox[2] - tag_bbox[0]
-    tag_h = tag_bbox[3] - tag_bbox[1]
-    pill_padding = 18
-    pill_rect = [
-        (width - tag_w) // 2 - pill_padding,
-        current_y,
-        (width + tag_w) // 2 + pill_padding,
-        current_y + tag_h + pill_padding * 2,
-    ]
-
-    # Semi-transparent pill background
-    draw.rounded_rectangle(
-        pill_rect, radius=20, fill=(20, 30, 50, 210), outline=COLOR_GOLD, width=1
-    )
-    draw.text(
-        ((width - tag_w) // 2, current_y + pill_padding - 2),
-        tag_text,
-        font=font_category,
-        fill=COLOR_GOLD,
-    )
-    current_y += tag_h + pill_padding * 2 + 35
-
-    # 5. Render Main Headline (Calligraphy, Centered, with Drop Shadow)
-    headline = content.get("headline", "오직 성령으로 충만함을 받으라")
-    headline_lines = _wrap_text(headline, font_headline, width - 180)
-
-    for line in headline_lines:
-        line_bbox = font_headline.getbbox(line)
-        lw = line_bbox[2] - line_bbox[0]
-        lh = line_bbox[3] - line_bbox[1]
-        lx = (width - lw) // 2
-        _draw_text_with_shadow(
-            draw,
-            (lx, current_y),
-            line,
-            font_headline,
-            fill_color=COLOR_WHITE,
-            shadow_color=(0, 0, 0, 210),
-            shadow_offset=(3, 5),
-        )
-        current_y += lh + 18
-
-    # Optional sub-headline
-    sub_headline = content.get("sub_headline", "")
-    if sub_headline:
-        sub_lines = _wrap_text(sub_headline, font_sub_headline, width - 200)
-        for sline in sub_lines:
-            sbw = (
-                font_sub_headline.getbbox(sline)[2]
-                - font_sub_headline.getbbox(sline)[0]
-            )
-            _draw_text_with_shadow(
-                draw,
-                ((width - sbw) // 2, current_y),
-                sline,
-                font_sub_headline,
-                fill_color=COLOR_LIGHT_GOLD,
-                shadow_offset=(2, 3),
-            )
-            current_y += 45
+    if layout_mode == 0:
+        logger.info("[Layout Engine] Rendering Style: MODERN_GLASS_CARDS (3-Card Glassmorphism)")
+        _render_layout_cards(draw, width, height, content, fonts)
+    elif layout_mode == 1:
+        logger.info("[Layout Engine] Rendering Style: SCRIPTURE_HERO (Majestic Scripture Gold Frame)")
+        _render_layout_scripture_hero(draw, width, height, content, fonts)
     else:
-        current_y += 15
+        logger.info("[Layout Engine] Rendering Style: EDITORIAL_MINIMAL (Magazine Typography Style)")
+        _render_layout_editorial(draw, width, height, content, fonts)
 
-    # Gold decorative separator line
-    sep_w = 160
-    draw.line(
-        [
-            ((width - sep_w) // 2, current_y),
-            ((width + sep_w) // 2, current_y),
-        ],
-        fill=COLOR_GOLD,
-        width=3,
-    )
-    current_y += 35
-
-    # 6. Render Points Section (Cards with golden badges & scripture)
-    points = content.get("points", [])
-    card_x = 80
-    card_width = width - (card_x * 2)
-
-    for i, pt in enumerate(points[:3], start=1):
-        pt_title = (
-            pt.get("title", "") if isinstance(pt, dict) else getattr(pt, "title")
-        )
-        pt_desc = (
-            pt.get("description", "")
-            if isinstance(pt, dict)
-            else getattr(pt, "description")
-        )
-
-        scripture_obj = (
-            pt.get("scripture", {})
-            if isinstance(pt, dict)
-            else getattr(pt, "scripture")
-        )
-        sc_ref = (
-            scripture_obj.get("reference", "")
-            if isinstance(scripture_obj, dict)
-            else getattr(scripture_obj, "reference", "")
-        )
-        sc_text = (
-            scripture_obj.get("text", "")
-            if isinstance(scripture_obj, dict)
-            else getattr(scripture_obj, "text", "")
-        )
-
-        # Wrap text lines
-        desc_lines = _wrap_text(pt_desc, font_point_desc, card_width - 130)
-        sc_lines = _wrap_text(
-            f"\"{sc_text}\" ({sc_ref})", font_scripture_txt, card_width - 130
-        )
-
-        # Calculate card height dynamically
-        line_height_desc = 34
-        line_height_sc = 32
-        card_content_height = (
-            55
-            + (len(desc_lines) * line_height_desc)
-            + (len(sc_lines) * line_height_sc)
-            + 30
-        )
-
-        # Card container with glassmorphic look
-        card_rect = [
-            card_x,
-            current_y,
-            card_x + card_width,
-            current_y + card_content_height,
-        ]
-        draw.rounded_rectangle(
-            card_rect,
-            radius=18,
-            fill=CARD_BG_COLOR,
-            outline=CARD_BORDER_COLOR,
-            width=2,
-        )
-
-        # Golden brush badge [1], [2], [3]
-        badge_size = 46
-        bx = card_x + 22
-        by = current_y + 20
-        draw.rounded_rectangle(
-            [bx, by, bx + badge_size, by + badge_size],
-            radius=12,
-            fill=COLOR_ACCENT_BG,
-        )
-        badge_txt = str(i)
-        bt_bbox = font_badge.getbbox(badge_txt)
-        btw = bt_bbox[2] - bt_bbox[0]
-        bth = bt_bbox[3] - bt_bbox[1]
-        draw.text(
-            (bx + (badge_size - btw) // 2, by + (badge_size - bth) // 2 - 2),
-            badge_txt,
-            font=font_badge,
-            fill=(20, 20, 20, 255),
-        )
-
-        # Point Title
-        tx = bx + badge_size + 20
-        ty = by + 4
-        _draw_text_with_shadow(
-            draw,
-            (tx, ty),
-            pt_title,
-            font=font_point_title,
-            fill_color=COLOR_GOLD,
-            shadow_offset=(1, 2),
-        )
-
-        # Description text
-        text_y = by + badge_size + 15
-        for dl in desc_lines:
-            _draw_text_with_shadow(
-                draw,
-                (bx + 10, text_y),
-                dl,
-                font=font_point_desc,
-                fill_color=COLOR_OFFWHITE,
-                shadow_offset=(1, 2),
-            )
-            text_y += line_height_desc
-
-        # Scripture quote box / indented text
-        text_y += 6
-        for sl in sc_lines:
-            _draw_text_with_shadow(
-                draw,
-                (bx + 15, text_y),
-                sl,
-                font=font_scripture_txt,
-                fill_color=COLOR_SCRIPTURE,
-                shadow_offset=(1, 1),
-            )
-            text_y += line_height_sc
-
-        current_y += card_content_height + 22
-
-    # 7. Render Call to Action / Inspirational Blessing
-    cta = content.get("call_to_action", "오늘도 주님의 평안이 함께하길 소망합니다.")
-    cta_lines = _wrap_text(f"“ {cta} ”", font_cta, width - 180)
-    for cl in cta_lines:
-        cw = font_cta.getbbox(cl)[2] - font_cta.getbbox(cl)[0]
-        _draw_text_with_shadow(
-            draw,
-            ((width - cw) // 2, current_y + 10),
-            cl,
-            font=font_cta,
-            fill_color=COLOR_LIGHT_GOLD,
-            shadow_offset=(2, 3),
-        )
-        current_y += 45
-
-    # 8. Render Bottom Footer: Church Branding & Optional Contact
-    footer_y = height - 165
+    # 4. Universal Bottom Church Footer
+    footer_y = height - 155
     church_name_str = config.get("church", {}).get("name", "포이에마성령교회")
     show_contact = config.get("church", {}).get("show_contact", False)
-    # Environment variable can also override show_contact
     import os
+    if os.getenv("SHOW_CHURCH_CONTACT"):
+        show_contact = os.getenv("SHOW_CHURCH_CONTACT").lower() in ("true", "1")
 
-    env_show_contact = os.getenv("SHOW_CHURCH_CONTACT")
-    if env_show_contact is not None:
-        show_contact = env_show_contact.lower() in ("true", "1", "yes")
+    contact_num = config.get("church", {}).get("contact_number", "")
+    slogan = config.get("church", {}).get("slogan", "성령의 임재와 말씀의 능력이 살아 숨쉬는 교회")
 
-    contact_num = config.get("church", {}).get(
-        "contact_number", "02-0000-0000"
-    )
-    slogan = config.get("church", {}).get(
-        "slogan", "성령의 임재와 말씀의 능력이 살아 숨쉬는 교회"
-    )
+    cn_w = fonts["church_name"].getbbox(church_name_str)[2] - fonts["church_name"].getbbox(church_name_str)[0]
+    _draw_text_with_shadow(draw, ((width - cn_w) // 2, footer_y), church_name_str, fonts["church_name"], COLOR_GOLD, shadow_offset=(2, 4))
 
-    # Church logo / name text
-    cn_bbox = font_church_name.getbbox(church_name_str)
-    cn_w = cn_bbox[2] - cn_bbox[0]
-    _draw_text_with_shadow(
-        draw,
-        ((width - cn_w) // 2, footer_y),
-        church_name_str,
-        font=font_church_name,
-        fill_color=COLOR_GOLD,
-        shadow_offset=(2, 4),
-    )
+    footer_sub = f"{slogan}  |  문의: {contact_num}" if show_contact and contact_num else slogan
+    sub_w = fonts["church_sub"].getbbox(footer_sub)[2] - fonts["church_sub"].getbbox(footer_sub)[0]
+    _draw_text_with_shadow(draw, ((width - sub_w) // 2, footer_y + 56), footer_sub, fonts["church_sub"], (210, 225, 245, 255))
 
-    # Sub banner text (Slogan or Contact based on toggle)
-    if show_contact and contact_num:
-        footer_sub = f"{slogan}  |  문의: {contact_num}"
-    else:
-        footer_sub = slogan
-
-    sub_bbox = font_church_sub.getbbox(footer_sub)
-    sub_w = sub_bbox[2] - sub_bbox[0]
-    _draw_text_with_shadow(
-        draw,
-        ((width - sub_w) // 2, footer_y + 58),
-        footer_sub,
-        font=font_church_sub,
-        fill_color=(200, 215, 235, 255),
-        shadow_offset=(1, 2),
-    )
-
-    # 9. Save final poster
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    poster_rgb = poster.convert("RGB")
-    poster_rgb.save(output_path, format="PNG", quality=95)
-    logger.info(f"Successfully generated final poster at: {output_path}")
-
+    poster.convert("RGB").save(output_path, format="PNG", quality=95)
+    logger.info(f"Successfully generated dynamic layout poster: {output_path}")
     return output_path
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    import yaml
-
-    test_content = {
-        "date_str": "2026.10.21",
-        "theme": "성령 충만",
-        "headline": "오직 성령으로 충만함을 받으라",
-        "sub_headline": "주님의 영이 머무는 곳에 참된 자유와 기쁨이 있습니다",
-        "points": [
-            {
-                "title": "말씀 안에 거하는 삶",
-                "description": "진리의 성령께서 우리를 모든 진리 가운데로 인도하시며 평안을 채우십니다.",
-                "scripture": {
-                    "reference": "요한복음 14:26",
-                    "text": "보혜사 곧 아버지께서 내 이름으로 보내실 성령 그가 너희에게 모든 것을 가르치시고",
-                },
-            },
-            {
-                "title": "기도로 깨어있는 믿음",
-                "description": "연약할 때마다 우리를 위하여 친히 간구하시는 성령의 능력을 의지하십시오.",
-                "scripture": {
-                    "reference": "로마서 8:26",
-                    "text": "성령도 우리의 연약함을 도우시나니 우리는 마땅히 기도할 바를 알지 못하나",
-                },
-            },
-            {
-                "title": "사랑과 감사의 열매",
-                "description": "내 힘이 아닌 주님의 은혜로 날마다 사랑과 희락과 화평을 맺어갑니다.",
-                "scripture": {
-                    "reference": "갈라디아서 5:22",
-                    "text": "오직 성령의 열매는 사랑과 희락과 화평과 오래 참음과 자비와 양선과",
-                },
-            },
-        ],
-        "call_to_action": "오늘 하루, 성령님을 인정하고 동행하며 온전한 승리를 누리십시오.",
-    }
-
-    with open(BASE_DIR / "config.yaml", "r", encoding="utf-8") as f:
-        conf = yaml.safe_load(f)
-
-    test_bg = BASE_DIR / "output" / "test_bg.png"
-    out_poster = BASE_DIR / "output" / "test_composed_poster.png"
-
-    res = compose_poster(test_bg, test_content, conf, out_poster)
-    print(
-        f"Poster composition successful: {res} ({res.stat().st_size:,} bytes)"
-    )
