@@ -187,14 +187,16 @@ image_generation:
 ---
 
 ## 🤖 GitHub Actions 완전 무인 자동화
-매일 아침 06:00 (KST 기준)에 GitHub Actions가 자동으로 구동되어 포스터를 생성하고 `WORKLOG.md`를 리포지토리에 푸시합니다.
+매일 아침 06:00 (KST 기준)에 GitHub Actions가 자동으로 구동되어 포스터를 생성하고, Gmail로 포스터를 발송한 후 `WORKLOG.md`를 리포지토리에 푸시합니다.
 
-GitHub 리포지토리의 **Settings > Secrets and variables > Actions**에서 다음 Secrets를 등록하세요:
-- `GEMINI_API_KEY`: Google GenAI API 키
-- `TYPESAFE_API_KEY`: TypeSafe AI Jev API 키
-- `GOOGLE_DRIVE_FOLDER_ID`: 구글 드라이브 폴더 ID
-- `SERVICE_ACCOUNT_JSON_BASE64`: `service_account.json` 파일의 Base64 인코딩 문자열
-  - 인코딩 명령 (PowerShell): `[Convert]::ToBase64String([IO.File]::ReadAllBytes("service_account.json"))`
+GitHub 리포지토리의 **Settings > Secrets and variables > Actions** 등록 현황:
+- `GEMINI_API_KEY`: Google GenAI (Gemini 2.5 & Imagen 3) API 키 (필수, 등록완료)
+- `TYPESAFE_API_KEY`: TypeSafe AI Jev 신학 가드레일 판정 키 (필수, 등록완료)
+- `GMAIL_USER`: 포스터 발송용 Gmail 주소 (필수, 등록완료)
+- `GMAIL_APP_PASSWORD`: Google 16자리 앱 비밀번호 (필수, 등록완료)
+- `RECEIVER_EMAILS`: 추가 수신자 이메일 목록 (선택, 미등록 시 `GMAIL_USER` 본인에게 자동 발송)
+- `GOOGLE_DRIVE_FOLDER_ID`: 구글 드라이브 폴더 ID (추후 Drive 연동 시 등록)
+- `SERVICE_ACCOUNT_JSON_BASE64`: `service_account.json` 파일 Base64 값 (추후 Drive 연동 시 등록)
 
 ---
 

@@ -99,9 +99,17 @@ def main() -> int:
         logger.info(
             f"■ 신학 가드레일 위험도: {result.get('theology_audit', {}).get('risk_score', 0.0):.2f}"
         )
-        logger.info(
-            f"■ Google Drive 링크: {result.get('drive_info', {}).get('web_view_link')}"
-        )
+        dispatch_info = result.get("dispatch_info", result.get("drive_info", {}))
+        email_info = dispatch_info.get("email_info", {})
+        if email_info:
+            logger.info(
+                f"■ Gmail 발송 상태: {'성공' if email_info.get('sent') else '미발송/실패'} ({email_info.get('message')})"
+            )
+        drive_info = dispatch_info.get("drive_info", {})
+        if drive_info and drive_info.get("uploaded"):
+            logger.info(
+                f"■ Google Drive 링크: {drive_info.get('web_view_link')}"
+            )
         logger.info("=" * 60 + "\n")
         return 0
 

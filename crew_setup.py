@@ -33,6 +33,7 @@ from guardrails.theology_guard import (
     audit_poster_content,
 )
 from image_composer import compose_poster
+from utils.email_sender import send_daily_poster_email
 from utils.font_downloader import ensure_fonts_exist
 from utils.image_generator import (
     build_imagen_prompt,
@@ -85,7 +86,7 @@ def append_to_worklog(
     header = (
         "# 🕊️ 포이에마성령교회 일간 말씀 포스터 제작 히스토리 (WORKLOG)\n\n"
         "이 문서는 매일 자동 생성된 말씀 광고 포스터의 기획 주제, 신학 검증 결과 및 배포 상태를 기록합니다.\n\n"
-        "| 날짜 | 주제 | 메인 헤드라인 | 대표 성경 구절 | TypeSafe 위험도 | 결과물 파일 | Google Drive 상태 |\n"
+        "| 날짜 | 주제 | 메인 헤드라인 | 대표 성경 구절 | TypeSafe 위험도 | 결과물 파일 | 배포 상태 |\n"
         "| :--- | :--- | :--- | :--- | :---: | :--- | :--- |\n"
     )
 
@@ -98,12 +99,7 @@ def append_to_worklog(
         if theology_risk <= 0.3
         else f"{theology_risk:.2f} (주의)"
     )
-    drive_display = (
-        f"[드라이브 링크]({drive_link})"
-        if drive_link.startswith("http")
-        else "로컬 보관"
-    )
-    row = f"| {date_str} | {theme} | {headline} | {scripture_ref} | {risk_display} | `{poster_filename}` | {drive_display} |\n"
+    row = f"| {date_str} | {theme} | {headline} | {scripture_ref} | {risk_display} | `{poster_filename}` | {drive_link} |\n"
 
     with open(p, "a", encoding="utf-8") as f:
         f.write(row)
@@ -368,7 +364,7 @@ class PosterPipelineOrchestrator:
         audit_result: TheologyAuditResult,
         dry_run: bool = False,
     ) -> Tuple[Path, Dict[str, Any]]:
-        """Agent 4 (Publishing Manager): Composes poster, uploads to Drive, and updates WORKLOG."""
+        """Agent 4 (Publishing Manager): Composes poster, sends via Gmail, uploads to Drive, and updates WORKLOG."""
         logger.info(
             f"[Publishing Manager] Beginning final graphic composition & distribution..."
         )
@@ -382,9 +378,26 @@ class PosterPipelineOrchestrator:
             bg_image_path, content, self.config, out_path
         )
 
-        # 2. Cloud Publishing (Google Drive)
+        dispatch_status_parts = []
+
+        # 2. Email Dispatch via Gmail
+        email_info = {"sent": False, "message": "Email disabled in config"}
+        if not dry_run and self.config.get("email", {}).get("enabled", True):
+            church_name = self.config.get("church", {}).get("name", "포이에마성령교회")
+            email_ok, email_msg = send_daily_poster_email(
+                poster_path=final_poster_path,
+                content=content,
+                church_name=church_name,
+            )
+            email_info = {"sent": email_ok, "message": email_msg}
+            if email_ok:
+                dispatch_status_parts.append("✉️ Gmail 발송 완료")
+            else:
+                dispatch_status_parts.append("✉️ Gmail 미발송")
+
+        # 3. Cloud Publishing (Google Drive) - Optional
         drive_info = {"uploaded": False, "web_view_link": str(final_poster_path)}
-        if not dry_run and self.config.get("drive", {}).get("enabled", True):
+        if not dry_run and self.config.get("drive", {}).get("enabled", False):
             folder_id = self.config.get("drive", {}).get("folder_id")
             sa_path = self.config.get("drive", {}).get("service_account_path")
             success, drive_info = upload_poster_to_drive(
@@ -393,8 +406,15 @@ class PosterPipelineOrchestrator:
                 service_account_path=sa_path,
                 custom_title=f"포이에마_말씀광고_{content.get('theme')}_{content.get('date_str')}.png",
             )
+            if success and drive_info.get("uploaded"):
+                dispatch_status_parts.append(f"[드라이브 링크]({drive_info.get('web_view_link')})")
 
-        # 3. Log to WORKLOG.md
+        if not dispatch_status_parts:
+            dispatch_status_str = "로컬 보관"
+        else:
+            dispatch_status_str = " / ".join(dispatch_status_parts)
+
+        # 4. Log to WORKLOG.md
         first_sc = "말씀 인용"
         points = content.get("points", [])
         if points:
@@ -419,10 +439,13 @@ class PosterPipelineOrchestrator:
             scripture_ref=first_sc,
             theology_risk=audit_result.risk_score,
             poster_filename=poster_filename,
-            drive_link=drive_info.get("web_view_link", "로컬"),
+            drive_link=dispatch_status_str,
         )
 
-        return final_poster_path, drive_info
+        return final_poster_path, {
+            "email_info": email_info,
+            "drive_info": drive_info,
+        }
 
     def execute_full_pipeline(
         self,
@@ -485,7 +508,7 @@ class PosterPipelineOrchestrator:
         bg_path = self.run_visual_art_director(theme, concept)
 
         # Step 4: Graphics Composition & Publishing
-        final_poster, drive_info = self.run_publishing_manager(
+        final_poster, dispatch_info = self.run_publishing_manager(
             bg_path, content, audit_res, dry_run=dry_run
         )
 
@@ -494,7 +517,8 @@ class PosterPipelineOrchestrator:
             "theme": theme,
             "headline": content.get("headline"),
             "poster_path": str(final_poster),
-            "drive_info": drive_info,
+            "dispatch_info": dispatch_info,
+            "drive_info": dispatch_info.get("drive_info", {}),
             "theology_audit": audit_res.dict(),
         }
 

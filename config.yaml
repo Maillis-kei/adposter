@@ -26,7 +26,10 @@ image_generation:
   height: 1920
   output_dir: "output"
 
+email:
+  enabled: true # Gmail 발송 활성화 (GMAIL_USER & GMAIL_APP_PASSWORD 사용)
+
 drive:
-  enabled: true
-  folder_id: "" # .env 의 GOOGLE_DRIVE_FOLDER_ID로 동적 오버라이드
+  enabled: false # Google Drive 연동은 추후 설정 시 true로 전환
+  folder_id: ""
   service_account_path: "service_account.json"
