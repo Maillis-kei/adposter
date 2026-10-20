@@ -330,6 +330,7 @@ class PosterPipelineOrchestrator:
         self,
         theme: str,
         visual_concept: str,
+        date_str: str = "",
         output_dir: Optional[Path] = None,
     ) -> Path:
         """Agent 3 (Visual Art Director): Prompts & triggers Imagen 3 for background."""
@@ -355,6 +356,8 @@ class PosterPipelineOrchestrator:
             aspect_ratio=aspect,
             width=width,
             height=height,
+            date_str=date_str,
+            theme=theme,
         )
 
     def run_publishing_manager(
@@ -505,7 +508,8 @@ class PosterPipelineOrchestrator:
             "visual_concept",
             "Golden heavenly light shining down on peaceful sanctuary",
         )
-        bg_path = self.run_visual_art_director(theme, concept)
+        date_str = content.get("date_str", "")
+        bg_path = self.run_visual_art_director(theme, concept, date_str=date_str)
 
         # Step 4: Graphics Composition & Publishing
         final_poster, dispatch_info = self.run_publishing_manager(
