@@ -1,0 +1,53 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Fonts (Zero-dependency auto download, keep repo lightweight)
+fonts/*.otf
+fonts/*.ttf
+fonts/*.woff
+fonts/*.woff2
+!fonts/.gitkeep
+
+# Output posters
+output/*.png
+output/*.jpg
+output/*.jpeg
+!output/.gitkeep
+
+# Secrets and credentials
+.env
+*.env.local
+service_account.json
+credentials.json
+*.pem
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

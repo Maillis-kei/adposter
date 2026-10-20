@@ -1,0 +1,32 @@
+church:
+  name: "포이에마성령교회"
+  show_contact: false
+  contact_number: "02-0000-0000"
+  location: "대한민국 서울특별시"
+  slogan: "성령의 임재와 말씀의 능력이 살아 숨쉬는 교회"
+
+fonts:
+  dir: "fonts"
+  headline: "PyeongChangPeace-Bold.otf"
+  body_bold: "Pretendard-Bold.otf"
+  body_regular: "Pretendard-Regular.otf"
+
+guardrails:
+  typesafe:
+    risk_threshold: 0.3 # 0.0(완전 안전) ~ 1.0(고위험). 0.3 초과 시 탈락
+    max_retries: 3
+    model: "typesafe-jev-decision-v1"
+  blacklist_path: "config/heresy_keywords.json"
+
+image_generation:
+  provider: "google-genai" # imagen 3
+  model: "imagen-3.0-generate-002"
+  aspect_ratio: "9:16"
+  width: 1080
+  height: 1920
+  output_dir: "output"
+
+drive:
+  enabled: true
+  folder_id: "" # .env 의 GOOGLE_DRIVE_FOLDER_ID로 동적 오버라이드
+  service_account_path: "service_account.json"
