@@ -1,17 +1,16 @@
 name: Daily Gospel Poster Automation
 
 on:
-  push:
-    branches: [ main ]
-  schedule:
-    # Runs daily at 21:00 UTC (06:00 KST next morning)
-    - cron: '0 21 * * *'
   workflow_dispatch:
     inputs:
       topic:
-        description: '특정 포스터 주제 (비워둘 시 WORKLOG 기반 자동 기획)'
+        description: '특정 포스터 주제 (비워둘 시 자동 기획)'
         required: false
         default: ''
+      form_factor:
+        description: '폼팩터 (verse_card, gospel_leaflet, devotional_postcard)'
+        required: false
+        default: 'verse_card'
       dry_run:
         description: '발송/업로드 제외 로컬 테스트 여부'
         type: boolean

@@ -10,6 +10,7 @@ google-generativeai>=0.8.0
 
 # Graphics & Image Processing
 pillow>=10.0.0
+customtkinter>=6.0.0
 
 # Cloud & Google Drive Publishing
 google-api-python-client>=2.100.0

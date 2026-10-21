@@ -303,11 +303,12 @@ class PosterPipelineOrchestrator:
         theme: str,
         visual_concept: str,
         form_factor: str = "verse_card",
+        forced_genre: Optional[str] = None,
         date_str: str = "",
         output_dir: Optional[Path] = None,
     ) -> Path:
-        """Agent 3 (Visual Art Director): Prompts & triggers Imagen 3 for background."""
-        logger.info(f"[Visual Art Director] Directing background artwork for theme '{theme}' ({form_factor})...")
+        """Agent 3 (Visual Art Director): Prompts & triggers FLUX.1 for background."""
+        logger.info(f"[Visual Art Director] Directing background artwork for theme '{theme}' ({form_factor}, genre: {forced_genre})...")
         prompt = build_imagen_prompt(theme, visual_concept, form_factor=form_factor)
         out_dir = output_dir or (BASE_DIR / "output")
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -329,6 +330,7 @@ class PosterPipelineOrchestrator:
             theme=theme,
             form_factor=form_factor,
             visual_concept=visual_concept,
+            forced_genre=forced_genre,
         )
 
     def run_publishing_manager(
@@ -406,6 +408,7 @@ class PosterPipelineOrchestrator:
         self,
         topic_override: Optional[str] = None,
         form_factor_override: Optional[str] = None,
+        forced_genre: Optional[str] = None,
         dry_run: bool = False,
     ) -> Dict[str, Any]:
         """Runs the entire pipeline with retry loop on guardrail failure."""
@@ -455,7 +458,11 @@ class PosterPipelineOrchestrator:
         form_factor = content.get("form_factor", "verse_card")
         
         bg_path = self.run_visual_art_director(
-            theme, concept, form_factor=form_factor, date_str=date_str
+            theme,
+            concept,
+            form_factor=form_factor,
+            forced_genre=forced_genre,
+            date_str=date_str,
         )
 
         # Step 4: Graphics Composition & Publishing

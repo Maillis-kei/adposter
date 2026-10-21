@@ -69,13 +69,16 @@ VISUAL_GENRES = {
 }
 
 
-def build_flux_prompt(theme: str, visual_concept: str = "", form_factor: str = "verse_card") -> Tuple[str, str]:
+def build_flux_prompt(theme: str, visual_concept: str = "", form_factor: str = "verse_card", forced_genre: Optional[str] = None) -> Tuple[str, str]:
     """Dynamically rotates and blends visual genres to produce rich FLUX.1 prompts."""
-    seed_idx = int(hashlib.md5(f"{theme}_{datetime.now().strftime('%Y%m%d%H')}".encode()).hexdigest(), 16)
     genre_keys = list(VISUAL_GENRES.keys())
-    chosen_genre = genre_keys[seed_idx % len(genre_keys)]
+    if forced_genre and forced_genre.lower() in VISUAL_GENRES:
+        chosen_genre = forced_genre.lower()
+    else:
+        seed_idx = int(hashlib.md5(f"{theme}_{datetime.now().strftime('%Y%m%d%H')}".encode()).hexdigest(), 16)
+        chosen_genre = genre_keys[seed_idx % len(genre_keys)]
+    
     base_genre_prompt = VISUAL_GENRES[chosen_genre]
-
     concept_str = f"Christian theme of '{theme}'. {visual_concept}." if visual_concept else f"Christian theme of '{theme}'."
     prompt = f"{concept_str} {base_genre_prompt}"
     return prompt, chosen_genre
@@ -308,13 +311,14 @@ def generate_unique_sacred_background(
     theme: str,
     form_factor: str = "verse_card",
     visual_concept: str = "",
+    forced_genre: Optional[str] = None,
     width: int = 1080,
     height: int = 1920,
     api_key: Optional[str] = None,
 ) -> Image.Image:
     """Master generator: Uses Pollinations FLUX.1 AI, with rich procedural backup."""
     seed_val = int(hashlib.md5(f"{date_str}_{theme}".encode()).hexdigest(), 16) % 1000000
-    prompt, genre = build_flux_prompt(theme, visual_concept=visual_concept, form_factor=form_factor)
+    prompt, genre = build_flux_prompt(theme, visual_concept=visual_concept, form_factor=form_factor, forced_genre=forced_genre)
 
     logger.info(f"[Visual Art Director] Requesting FLUX.1 AI with genre: '{genre.upper()}'...")
     ai_img = try_generate_via_pollinations_flux(
@@ -347,6 +351,7 @@ def generate_background_image(
     theme: str = "",
     form_factor: str = "verse_card",
     visual_concept: str = "",
+    forced_genre: Optional[str] = None,
 ) -> Path:
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -359,6 +364,7 @@ def generate_background_image(
         theme=current_theme,
         form_factor=form_factor,
         visual_concept=visual_concept,
+        forced_genre=forced_genre,
         width=width,
         height=height,
         api_key=api_key,
