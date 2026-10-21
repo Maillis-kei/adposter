@@ -304,10 +304,11 @@ class PosterPipelineOrchestrator:
         visual_concept: str,
         form_factor: str = "verse_card",
         forced_genre: Optional[str] = None,
+        engine_choice: str = "auto",
         date_str: str = "",
         output_dir: Optional[Path] = None,
     ) -> Path:
-        """Agent 3 (Visual Art Director): Prompts & triggers FLUX.1 for background."""
+        """Agent 3 (Visual Art Director): Prompts & triggers AI for background."""
         logger.info(f"[Visual Art Director] Directing background artwork for theme '{theme}' ({form_factor}, genre: {forced_genre})...")
         prompt = build_imagen_prompt(theme, visual_concept, form_factor=form_factor)
         out_dir = output_dir or (BASE_DIR / "output")
@@ -331,6 +332,7 @@ class PosterPipelineOrchestrator:
             form_factor=form_factor,
             visual_concept=visual_concept,
             forced_genre=forced_genre,
+            engine_choice=engine_choice,
         )
 
     def run_publishing_manager(
@@ -409,18 +411,27 @@ class PosterPipelineOrchestrator:
         topic_override: Optional[str] = None,
         form_factor_override: Optional[str] = None,
         forced_genre: Optional[str] = None,
+        engine_choice: str = "auto",
         dry_run: bool = False,
+        agent_listener: Optional[Any] = None,
+        intervention_callback: Optional[Any] = None,
     ) -> Dict[str, Any]:
-        """Runs the entire pipeline with retry loop on guardrail failure."""
+        """Runs the pipeline with agent communication feed and optional human intervention."""
+        def notify(agent_name: str, message: str, data: Any = None):
+            logger.info(f"[{agent_name}] {message}")
+            if agent_listener:
+                try:
+                    agent_listener(agent_name, message, data)
+                except Exception:
+                    pass
+
         max_retries = (
             self.config.get("guardrails", {})
             .get("typesafe", {})
             .get("max_retries", 3)
         )
 
-        logger.info(f"=== Starting Poiema Gospel Stationery Pipeline (Max Retries: {max_retries}) ===")
-
-        # Pre-flight: Ensure font readiness
+        notify("System", f"=== 포이에마 말씀 콘텐츠 파이프라인 가동 (최대 재시도: {max_retries}) ===")
         ensure_fonts_exist(BASE_DIR / "fonts")
 
         attempt = 1
@@ -428,47 +439,78 @@ class PosterPipelineOrchestrator:
         audit_res = None
 
         while attempt <= max_retries:
-            logger.info(f"--- Pipeline Attempt #{attempt}/{max_retries} ---")
+            notify("System", f"파이프라인 시도 #{attempt}/{max_retries} 시작...")
+            
+            # Step 1: Spiritual Copywriter
+            notify("Spiritual Copywriter", "말씀 기획 및 복음 카피 작성 중...")
             content = self.run_spiritual_copywriter(
                 topic_override=topic_override,
                 form_factor_override=form_factor_override,
             )
+            notify(
+                "Spiritual Copywriter",
+                f"기획 완료! [주제: {content.get('theme')}] [헤드라인: {content.get('headline')}]",
+                data=content,
+            )
 
+            # Optional Human-in-the-Loop Intervention (사용자 중간 개입)
+            if intervention_callback:
+                notify("System", "👤 사용자의 카피 검토 및 중간 개입 대기 중...")
+                modified_content = intervention_callback(content)
+                if modified_content and isinstance(modified_content, dict):
+                    content = modified_content
+                    notify("Spiritual Copywriter", f"사용자 수정 사항이 반영되었습니다: [헤드라인: {content.get('headline')}]")
+
+            # Step 2: Theology Auditor
+            notify("Theology Auditor", f"3중 신학 가드레일(블랙리스트 + TypeSafe AI Jev + 정경 검증) 심사 시작...")
             audit_res = self.run_theology_auditor(content)
 
             if audit_res.is_theologically_sound:
-                logger.info(
-                    f"✓ Guardrail PASSED! (Risk score: {audit_res.risk_score:.2f}, Layer: {audit_res.failed_layer})"
+                notify(
+                    "Theology Auditor",
+                    f"✓ 신학 검증 통과! (위험도: {audit_res.risk_score:.2f}, 레이어: {audit_res.failed_layer})",
+                    data=audit_res.dict(),
                 )
                 break
             else:
-                logger.warning(f"✗ Guardrail REJECTED on attempt #{attempt}: {audit_res.reason}")
-                logger.info(f"Feedback for Copywriter: {audit_res.feedback_for_copywriter}")
+                notify(
+                    "Theology Auditor",
+                    f"✗ 신학 검증 반려 (시도 #{attempt}): {audit_res.reason}",
+                    data=audit_res.dict(),
+                )
                 attempt += 1
 
         if not audit_res or not audit_res.is_theologically_sound:
             raise RuntimeError(
-                f"Theology Guardrail rejected content after {max_retries} attempts. Reason: {audit_res.reason if audit_res else 'Unknown'}"
+                f"Theology Guardrail rejected content after {max_retries} attempts."
             )
 
-        # Step 3: Visual Background Generation
+        # Step 3: Visual Art Director
         theme = content.get("theme", "은혜와 평안")
         concept = content.get("visual_concept", "")
         date_str = content.get("date_str", "")
         form_factor = content.get("form_factor", "verse_card")
         
+        notify(
+            "Visual Art Director",
+            f"배경 비주얼 생성 착수 (폼팩터: {form_factor}, 스타일: {forced_genre or '자동'}, 엔진: {engine_choice})...",
+        )
         bg_path = self.run_visual_art_director(
             theme,
             concept,
             form_factor=form_factor,
             forced_genre=forced_genre,
+            engine_choice=engine_choice,
             date_str=date_str,
         )
+        notify("Visual Art Director", f"✓ 배경 아트워크 생성 완료: {bg_path.name}")
 
         # Step 4: Graphics Composition & Publishing
+        notify("Publishing Manager", "수묵 캘리그래피 및 붉은 전각 낙관 정밀 조판 시작...")
         final_poster, dispatch_info = self.run_publishing_manager(
             bg_path, content, audit_res, dry_run=dry_run
         )
+        notify("Publishing Manager", f"✓ 최종 결과물 완성: {final_poster.name}")
 
         return {
             "success": True,
@@ -479,6 +521,7 @@ class PosterPipelineOrchestrator:
             "dispatch_info": dispatch_info,
             "drive_info": dispatch_info.get("drive_info", {}),
             "theology_audit": audit_res.dict(),
+            "content": content,
         }
 
 

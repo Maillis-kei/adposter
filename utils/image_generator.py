@@ -302,6 +302,17 @@ def generate_rich_procedural_sacred_artwork(
     return img.convert("RGB")
 
 
+def _clean_watermark_area(img: Image.Image) -> Image.Image:
+    """Safely cleans any watermark residue at bottom right corner if present."""
+    w, h = img.size
+    # Crop slightly and re-stretch or inpaint bottom edge
+    # Seamless bottom edge fade
+    bottom_strip = img.crop((w - 220, h - 50, w, h))
+    blurred = bottom_strip.filter(ImageFilter.GaussianBlur(radius=8))
+    img.paste(blurred, (w - 220, h - 50))
+    return img
+
+
 # ---------------------------------------------------------------------------
 # Master Background Dispatcher
 # ---------------------------------------------------------------------------
@@ -312,14 +323,30 @@ def generate_unique_sacred_background(
     form_factor: str = "verse_card",
     visual_concept: str = "",
     forced_genre: Optional[str] = None,
+    engine_choice: str = "auto",
     width: int = 1080,
     height: int = 1920,
     api_key: Optional[str] = None,
 ) -> Image.Image:
-    """Master generator: Uses Pollinations FLUX.1 AI, with rich procedural backup."""
+    """Master generator: Uses Local Apple Silicon M2 GPU or Pollinations FLUX.1 AI."""
     seed_val = int(hashlib.md5(f"{date_str}_{theme}".encode()).hexdigest(), 16) % 1000000
     prompt, genre = build_flux_prompt(theme, visual_concept=visual_concept, form_factor=form_factor, forced_genre=forced_genre)
 
+    # 1. Local Apple Silicon M2 GPU Engine (100% Watermark Free)
+    if engine_choice == "local":
+        try:
+            from utils.local_sdxl_engine import generate_local_artwork
+            temp_local_out = Path(__file__).resolve().parent.parent / "output" / f"temp_local_{seed_val}.png"
+            logger.info(f"[Visual Art Director] Generating 100% Native Artwork via Apple Silicon M2 GPU...")
+            res_path = generate_local_artwork(prompt, temp_local_out, width=width, height=height)
+            if res_path and res_path.exists():
+                local_img = Image.open(res_path).convert("RGB")
+                res_path.unlink(missing_ok=True)
+                return local_img
+        except Exception as e:
+            logger.warning(f"Local M2 engine failed: {e}. Falling back...")
+
+    # 2. Pollinations FLUX.1 Engine with Watermark Cleaning
     logger.info(f"[Visual Art Director] Requesting FLUX.1 AI with genre: '{genre.upper()}'...")
     ai_img = try_generate_via_pollinations_flux(
         prompt=prompt,
@@ -328,8 +355,9 @@ def generate_unique_sacred_background(
         height=height,
     )
     if ai_img is not None:
-        return ai_img
+        return _clean_watermark_area(ai_img)
 
+    # 3. Rich Procedural Painting Fallback
     logger.info(f"[Visual Art Director] Using rich procedural Christian painting for '{theme}'...")
     return generate_rich_procedural_sacred_artwork(
         date_str=date_str,
@@ -352,6 +380,7 @@ def generate_background_image(
     form_factor: str = "verse_card",
     visual_concept: str = "",
     forced_genre: Optional[str] = None,
+    engine_choice: str = "auto",
 ) -> Path:
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -365,6 +394,7 @@ def generate_background_image(
         form_factor=form_factor,
         visual_concept=visual_concept,
         forced_genre=forced_genre,
+        engine_choice=engine_choice,
         width=width,
         height=height,
         api_key=api_key,
