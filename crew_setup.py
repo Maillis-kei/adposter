@@ -239,14 +239,27 @@ class PosterPipelineOrchestrator:
                 )
 
                 client = genai.Client(api_key=self.gemini_key)
-                response = client.models.generate_content(
-                    model="gemini-1.5-flash",
-                    contents=[user_prompt],
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_prompt,
-                        response_mime_type="application/json",
-                    ),
-                )
+                # Try gemini-2.5-flash, fallback to gemini-2.0-flash
+                try:
+                    target_model = "gemini-2.5-flash"
+                    response = client.models.generate_content(
+                        model=target_model,
+                        contents=[user_prompt],
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_prompt,
+                            response_mime_type="application/json",
+                        ),
+                    )
+                except Exception:
+                    target_model = "gemini-2.0-flash"
+                    response = client.models.generate_content(
+                        model=target_model,
+                        contents=[user_prompt],
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_prompt,
+                            response_mime_type="application/json",
+                        ),
+                    )
                 data = json.loads(response.text)
                 data["date_str"] = today_str
                 data["form_factor"] = chosen_form

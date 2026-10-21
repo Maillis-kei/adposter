@@ -228,14 +228,24 @@ def verify_with_typesafe_jev(
                 from google.genai import types
 
                 client = genai.Client(api_key=gemini_key)
-                response = client.models.generate_content(
-                    model="gemini-1.5-flash",
-                    contents=[prompt],
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_instruction,
-                        response_mime_type="application/json",
-                    ),
-                )
+                try:
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=[prompt],
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_instruction,
+                            response_mime_type="application/json",
+                        ),
+                    )
+                except Exception:
+                    response = client.models.generate_content(
+                        model="gemini-2.0-flash",
+                        contents=[prompt],
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_instruction,
+                            response_mime_type="application/json",
+                        ),
+                    )
                 raw_json = response.text
             except ImportError:
                 import google.generativeai as gai

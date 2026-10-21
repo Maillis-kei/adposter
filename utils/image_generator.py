@@ -1,12 +1,19 @@
-"""Aesthetic Background Generation Module (Modern Christian Devotional & Verse Card Art).
+"""Aesthetic Background Generation Module (Multi-Genre Christian Artwork Engine).
 
-Transfers the visual grammar from modern editorial Christian design, Korean devotional cards,
-and minimalist sacred photography:
-- Minimalist Still-Life & Editorial Photography (Natural sunlight, linen, olive branches, serene dawn)
-- Textured Hanji & Fine-Art Watercolor Washes (Warm cream, oatmeal, muted sage, gentle sunset gradient)
-- Cinematic 35mm Natural Film Aesthetics (Soft shadows, tranquil sanctuary light, peaceful atmosphere)
+Supports 5 diverse visual genres tailored to user desires:
+1. Cinematic & Editorial Photography (실사형 사진):
+   - Natural 35mm sunlight, serene sanctuary, olive branches on wood, calm lake at sunrise.
+2. Modern Christian Illustration (감성 일러스트):
+   - Warm gouache & oil-pastel textures, peaceful pastoral landscapes, gentle brushstrokes.
+3. Sacred Symbolic Art (상징 및 심벌 아트):
+   - Radiant Holy Spirit Dove, Olive Branches of Peace, Living Waters, Glowing Cross, Golden Wheat.
+4. Anime Sacred Aesthetic (감성 애니메이션):
+   - Vast luminous pastel skies, Makoto Shinkai / Ghibli inspired celestial clouds, heavenly light.
+5. Whimsical Storybook Art (따뜻한 동화 그림):
+   - Children's storybook watercolor, gentle shepherd & flock, cozy peaceful biblical meadow.
 
-Generates 100% original, non-cliché backgrounds dynamically via Google Imagen 3 or high-art procedural paper wash.
+Uses Google Imagen 3 official SDK (`client.models.generate_images`), and features a rich procedural
+sacred illustration engine (Dove, Olive, Rays, Hills) so it is NEVER a plain monochrome background!
 """
 
 from datetime import datetime
@@ -26,167 +33,299 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Dynamic Imagen 3 Prompt Engineering Engine
+# 5 Rich Visual Genres for Imagen 3
 # ---------------------------------------------------------------------------
 
-FORM_FACTOR_AESTHETICS = {
-    "verse_card": (
-        "Editorial minimalist Christian scripture card aesthetic. "
-        "Still-life photography with soft, warm morning sunlight streaming in diagonally, "
-        "a delicate olive sprig casting a gentle shadow upon textured cream linen fabric, "
-        "subtle warm oatmeal and neutral muted beige palette, Kinfolk magazine style, "
-        "peaceful, clean, ample serene negative space in the center and top for typography, "
-        "shot on 35mm lens, f/2.8, shallow depth of field, strictly NO text, NO letters, NO watermark."
+VISUAL_GENRES = {
+    "photography": (
+        "Breathtaking editorial still-life photography. "
+        "A peaceful sanctuary setting bathed in warm morning sunlight streaming in through tall arched windows, "
+        "natural wooden texture, delicate fresh olive branches and white lilies casting gentle shadows, "
+        "warm glowing ambiance, highly aesthetic, 35mm film photography, 8k resolution, "
+        "ample negative space in upper area for Korean calligraphy, strictly NO text, NO letters, NO watermark."
     ),
-    "gospel_leaflet": (
-        "Warm, comforting, authentic photographic atmosphere that feels like an invitation to rest. "
-        "A quiet, sunlit sanctuary corner with natural wooden table, a cozy ceramic cup with rising gentle steam, "
-        "warm golden hour sunlight illuminating the dust motes softly in the air, tranquil indoor plant leaves, "
-        "welcoming, deeply comforting and serene ambiance, inviting peace, plenty of clean negative space, "
-        "cinematic lighting, natural tones, strictly NO text, NO letters, NO words."
+    "illustration": (
+        "A stunning, warm modern Christian editorial illustration with rich oil pastel and gouache textures. "
+        "A peaceful sacred landscape under a majestic dawn, radiant divine light filtering softly through gentle trees, "
+        "serene pathway of peace, comforting earthy pastel tones, artistic masterpiece, "
+        "plenty of serene negative space, strictly NO text, NO letters, NO characters."
     ),
-    "devotional_postcard": (
-        "Fine-art minimalist watercolor and ink-wash background on rich textured handmade cotton paper. "
-        "Soft ethereal dawn gradients in gentle misty sage green, warm ivory, and subtle peach morning glow, "
-        "abstract soft celestial light filtering through a calm tranquil misty lake, contemplative holy stillness, "
-        "delicate organic watercolor bleed textures, elegant and serene, ample negative space for Korean calligraphy, "
-        "masterpiece quality, strictly NO typography, NO text, NO characters."
+    "symbolic": (
+        "An exquisite sacred Christian symbolic artwork. "
+        "A radiant white dove of the Holy Spirit gracefully descending with an olive branch of peace, "
+        "surrounded by subtle celestial golden light beams and soft glowing particles, "
+        "majestic, deeply spiritual and reverent, artistic minimalism, beautiful negative space, "
+        "masterpiece quality, strictly NO text, NO letters, NO watermark."
+    ),
+    "anime": (
+        "A breathtaking anime sacred background in the style of Makoto Shinkai and Studio Ghibli. "
+        "A vast luminous sky with breathtaking dawn clouds painted in gentle pastel blue, peach, and lavender, "
+        "celestial god-rays breaking through heavenly clouds onto rolling tranquil hills below, "
+        "holy peaceful atmosphere, vibrant and emotionally moving, top 60% clean for typography, "
+        "strictly NO text, NO letters, NO watermark."
+    ),
+    "storybook": (
+        "A heartwarming, cozy picture-book storybook watercolor illustration. "
+        "Soft whimsical Christian scenery with a gentle shepherd guiding peaceful sheep across sun-drenched rolling green hills, "
+        "wildflowers blooming, soft puffy clouds in a warm golden morning sky, comforting and gentle aesthetic, "
+        "airy composition with negative space for Korean calligraphy, strictly NO text, NO letters."
     ),
 }
 
 
-def build_imagen_prompt(theme: str, visual_concept: str, form_factor: str = "verse_card") -> str:
-    """Builds a refined, trend-conscious visual prompt eliminating all clichés."""
-    base_style = FORM_FACTOR_AESTHETICS.get(form_factor, FORM_FACTOR_AESTHETICS["verse_card"])
-    
-    # Custom contextual nuance from the spiritual theme
-    context_note = f"The spiritual essence represents '{theme}'. {visual_concept}." if visual_concept else f"The spiritual essence represents '{theme}'."
-    
-    prompt = (
-        f"{context_note} {base_style} "
-        f"Atmospheric, poetic, extremely calm and sacred, spacious negative space, ultra-high resolution 8k, "
-        f"strictly NO text, NO letters, NO characters, NO watermark."
+def build_imagen_prompt(theme: str, visual_concept: str = "", form_factor: str = "verse_card") -> str:
+    """Dynamically rotates and blends visual genres to produce rich, imaginative art."""
+    # Seed by theme to ensure deterministic yet diverse choices
+    seed_idx = int(hashlib.md5(f"{theme}_{datetime.now().strftime('%Y%m%d')}".encode()).hexdigest(), 16)
+    genre_keys = list(VISUAL_GENRES.keys())
+    chosen_genre = genre_keys[seed_idx % len(genre_keys)]
+    base_genre_prompt = VISUAL_GENRES[chosen_genre]
+
+    concept_str = f"Theme: '{theme}'. {visual_concept}." if visual_concept else f"Theme: '{theme}'."
+    logger.info(f"[Visual Art Director] Selected Visual Genre: '{chosen_genre.upper()}' for '{theme}'")
+
+    return f"{concept_str} {base_genre_prompt}"
+
+
+# ---------------------------------------------------------------------------
+# Rich Procedural Artwork Engine (NEVER PLAIN MONOCHROME!)
+# ---------------------------------------------------------------------------
+
+def _draw_sacred_dove_silhouette(draw: ImageDraw.ImageDraw, cx: int, cy: int, scale: float = 1.0) -> None:
+    """Draws a graceful descending dove of the Holy Spirit with soft glowing wings."""
+    # Wing Left
+    w_left = [
+        (cx, cy),
+        (cx - int(70 * scale), cy - int(55 * scale)),
+        (cx - int(120 * scale), cy - int(95 * scale)),
+        (cx - int(150 * scale), cy - int(75 * scale)),
+        (cx - int(90 * scale), cy - int(30 * scale)),
+        (cx - int(30 * scale), cy - int(10 * scale)),
+    ]
+    # Wing Right
+    w_right = [
+        (cx, cy),
+        (cx + int(70 * scale), cy - int(55 * scale)),
+        (cx + int(120 * scale), cy - int(95 * scale)),
+        (cx + int(150 * scale), cy - int(75 * scale)),
+        (cx + int(90 * scale), cy - int(30 * scale)),
+        (cx + int(30 * scale), cy - int(10 * scale)),
+    ]
+    # Body & Tail
+    body = [
+        (cx, cy - int(25 * scale)),    # head
+        (cx + int(12 * scale), cy),
+        (cx + int(15 * scale), cy + int(45 * scale)),
+        (cx + int(28 * scale), cy + int(90 * scale)),  # tail right
+        (cx, cy + int(75 * scale)),                    # tail center
+        (cx - int(28 * scale), cy + int(90 * scale)),  # tail left
+        (cx - int(15 * scale), cy + int(45 * scale)),
+        (cx - int(12 * scale), cy),
+    ]
+
+    # Soft glowing dove color (warm white with soft golden rim)
+    draw.polygon(w_left, fill=(255, 253, 245, 180))
+    draw.polygon(w_right, fill=(255, 253, 245, 180))
+    draw.polygon(body, fill=(255, 255, 250, 220))
+    # Head
+    draw.ellipse(
+        [cx - int(10 * scale), cy - int(35 * scale), cx + int(10 * scale), cy - int(15 * scale)],
+        fill=(255, 255, 250, 230),
     )
-    return prompt
 
 
-# ---------------------------------------------------------------------------
-# High-Art Procedural Paper & Watercolor Background Engine
-# ---------------------------------------------------------------------------
+def _draw_olive_branch(draw: ImageDraw.ImageDraw, sx: int, sy: int, length: int = 220) -> None:
+    """Draws a delicate, artistic watercolor olive sprig."""
+    stem_pts = []
+    for i in range(12):
+        t = i / 11
+        x = sx + int(t * length)
+        y = sy + int(math.sin(t * 3.14) * 35)
+        stem_pts.append((x, y))
+        
+        # Leaves along the stem
+        if i % 2 == 1:
+            lx = x
+            ly = y - 18
+            # Olive leaf
+            draw.ellipse([lx - 16, ly - 8, lx + 16, ly + 8], fill=(135, 155, 120, 150))
+            draw.ellipse([lx - 12, ly + 14, lx + 12, ly + 26], fill=(115, 138, 102, 140))
 
-def generate_aesthetic_procedural_background(
+    if len(stem_pts) > 1:
+        draw.line(stem_pts, fill=(110, 100, 85, 180), width=3)
+
+
+def generate_rich_procedural_sacred_artwork(
     date_str: str,
     theme: str,
     form_factor: str = "verse_card",
     width: int = 1080,
     height: int = 1920,
 ) -> Image.Image:
-    """Generates an exquisite, textured fine-art Korean paper & watercolor background.
+    """Generates an illustrative, richly detailed Christian artwork.
     
-    Never looks like raw computer graphics. Replicates real organic handmade paper,
-    gentle watercolor washes (Sage, Cream, Warm Ochre, Sunset Lavender), and soft ambient god-rays.
+    Contains:
+    - Celestial Dawn Atmosphere & Light Rays
+    - Rolling watercolor hills and wildflower meadow
+    - Ascending Holy Spirit Dove & Olive branch
+    - Fine art watercolor & paper grain texture
     """
-    seed_val = int(hashlib.md5(f"{date_str}_{theme}_{form_factor}".encode()).hexdigest(), 16)
+    seed_val = int(hashlib.md5(f"{date_str}_{theme}".encode()).hexdigest(), 16)
     rng = random.Random(seed_val)
 
-    # 1. Base Harmonious Palette Selection (Muted, warm, peaceful)
-    palette_options = [
-        # Palette 1: Warm Cream & Sage (Peace & Healing)
-        {"bg": (248, 246, 240), "accent1": (225, 232, 222), "accent2": (245, 230, 215), "light": (255, 252, 245)},
-        # Palette 2: Dawn Oatmeal & Peach (Grace & Morning Joy)
-        {"bg": (247, 244, 238), "accent1": (245, 226, 216), "accent2": (230, 225, 215), "light": (255, 250, 240)},
-        # Palette 3: Celestial Lavender & Mist (Holy Presence)
-        {"bg": (245, 244, 246), "accent1": (232, 228, 238), "accent2": (224, 232, 235), "light": (255, 253, 250)},
-        # Palette 4: Warm Sunlight Ochre (Comfort & Truth)
-        {"bg": (250, 247, 240), "accent1": (242, 232, 210), "accent2": (235, 225, 215), "light": (255, 254, 245)},
+    # 1. Scenic Color Palette
+    palettes = [
+        # Dawn Serenity (Sky blue to warm peach dawn)
+        {"sky_top": (145, 185, 220), "sky_mid": (235, 215, 200), "sky_dawn": (255, 228, 195), "hill_back": (160, 180, 160), "hill_fore": (105, 135, 105)},
+        # Golden Hour Sanctuary (Warm golden ochre to soft lilac)
+        {"sky_top": (185, 175, 205), "sky_mid": (245, 210, 180), "sky_dawn": (255, 235, 190), "hill_back": (180, 160, 135), "hill_fore": (125, 105, 80)},
+        # Fresh Living Waters (Misty sage to crystal morning)
+        {"sky_top": (160, 200, 205), "sky_mid": (220, 235, 225), "sky_dawn": (250, 245, 220), "hill_back": (140, 175, 155), "hill_fore": (85, 120, 95)},
     ]
-    pal = palette_options[seed_val % len(palette_options)]
+    pal = palettes[seed_val % len(palettes)]
 
-    # Create base canvas
-    img = Image.new("RGBA", (width, height), (*pal["bg"], 255))
+    img = Image.new("RGBA", (width, height), (255, 255, 255, 255))
     draw = ImageDraw.Draw(img)
 
-    # 2. Organic Gradient Base (Soft vertical and diagonal illumination)
-    grad_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    g_draw = ImageDraw.Draw(grad_layer)
-    for y in range(height):
-        ratio = y / height
-        # Subtle gradient from light at top-middle to cozy warmth at bottom
-        r = int(pal["bg"][0] * (1 - ratio * 0.08) + pal["accent1"][0] * (ratio * 0.08))
-        g = int(pal["bg"][1] * (1 - ratio * 0.08) + pal["accent1"][1] * (ratio * 0.08))
-        b = int(pal["bg"][2] * (1 - ratio * 0.08) + pal["accent1"][2] * (ratio * 0.08))
-        g_draw.line([(0, y), (width, y)], fill=(r, g, b, 255))
-    img = Image.alpha_composite(img, grad_layer)
+    # 2. Painterly Sky Gradient (Top 65%)
+    sky_h = int(height * 0.72)
+    for y in range(sky_h):
+        ratio = y / sky_h
+        if ratio < 0.5:
+            lr = ratio / 0.5
+            r = int(pal["sky_top"][0] * (1 - lr) + pal["sky_mid"][0] * lr)
+            g = int(pal["sky_top"][1] * (1 - lr) + pal["sky_mid"][1] * lr)
+            b = int(pal["sky_top"][2] * (1 - lr) + pal["sky_mid"][2] * lr)
+        else:
+            lr = (ratio - 0.5) / 0.5
+            r = int(pal["sky_mid"][0] * (1 - lr) + pal["sky_dawn"][0] * lr)
+            g = int(pal["sky_mid"][1] * (1 - lr) + pal["sky_dawn"][1] * lr)
+            b = int(pal["sky_mid"][2] * (1 - lr) + pal["sky_dawn"][2] * lr)
+        draw.line([(0, y), (width, y)], fill=(r, g, b, 255))
 
-    # 3. Soft Watercolor Bleeds & Light Pools
-    wash_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    w_draw = ImageDraw.Draw(wash_layer)
+    # 3. Celestial God-Rays (Streaming down gently)
+    ray_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    r_draw = ImageDraw.Draw(ray_layer)
+    sun_x = int(width * rng.uniform(0.35, 0.65))
+    sun_y = int(sky_h * 0.35)
 
-    # Top-right or top-left ethereal light pool
-    light_x = rng.choice([int(width * 0.25), int(width * 0.75)])
-    light_y = rng.randint(int(height * 0.15), int(height * 0.35))
-    for rad in range(650, 50, -40):
-        alpha = int(45 * (1 - (rad / 650) ** 1.5))
-        w_draw.ellipse(
-            [light_x - rad, light_y - rad, light_x + rad, light_y + rad],
-            fill=(*pal["light"], alpha),
-        )
+    # Sun divine glow
+    for rad in range(400, 20, -30):
+        alpha = int(55 * (1 - (rad / 400) ** 1.2))
+        r_draw.ellipse([sun_x - rad, sun_y - rad, sun_x + rad, sun_y + rad], fill=(255, 250, 225, alpha))
 
-    # Organic watercolor washes around bottom or edges
-    for _ in range(4):
-        wx = rng.randint(0, width)
-        wy = rng.randint(int(height * 0.55), height + 100)
-        rx = rng.randint(400, 800)
-        ry = rng.randint(300, 600)
-        color = rng.choice([pal["accent1"], pal["accent2"]])
-        w_draw.ellipse(
-            [wx - rx, wy - ry, wx + rx, wy + ry],
-            fill=(*color, rng.randint(30, 65)),
-        )
+    # Beams of light
+    for i in range(-5, 6):
+        angle = i * 0.12
+        ray_pts = [
+            (sun_x, sun_y),
+            (sun_x + int(math.sin(angle - 0.04) * height), sun_y + int(math.cos(angle - 0.04) * height)),
+            (sun_x + int(math.sin(angle + 0.04) * height), sun_y + int(math.cos(angle + 0.04) * height)),
+        ]
+        r_draw.polygon(ray_pts, fill=(255, 252, 235, rng.randint(20, 45)))
 
-    wash_layer = wash_layer.filter(ImageFilter.GaussianBlur(radius=80))
-    img = Image.alpha_composite(img, wash_layer)
+    ray_layer = ray_layer.filter(ImageFilter.GaussianBlur(radius=30))
+    img = Image.alpha_composite(img, ray_layer)
 
-    # 4. Realistic Paper Fiber Texture (Subtle Hanji / Cotton grain)
+    # 4. Sacred Dove of the Holy Spirit (Center top-right or center-left)
+    dove_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    d_draw = ImageDraw.Draw(dove_layer)
+    dove_x = sun_x + int(rng.choice([-1, 1]) * rng.randint(80, 180))
+    dove_y = sun_y - rng.randint(60, 120)
+    _draw_sacred_dove_silhouette(d_draw, dove_x, dove_y, scale=rng.uniform(0.9, 1.25))
+    dove_layer = dove_layer.filter(ImageFilter.GaussianBlur(radius=1.5))
+    img = Image.alpha_composite(img, dove_layer)
+
+    # 5. Distant Watercolor Mountain & Rolling Hills (Bottom 35%)
+    hill_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    h_draw = ImageDraw.Draw(hill_layer)
+
+    # Distant hill
+    back_pts = [(0, height)]
+    for x in range(0, width + 50, 40):
+        hy = int(sky_h - 40 + math.sin(x * 0.005 + 1.2) * 55)
+        back_pts.append((x, hy))
+    back_pts.append((width, height))
+    h_draw.polygon(back_pts, fill=(*pal["hill_back"], 210))
+
+    # Foreground hill with warmth
+    fore_pts = [(0, height)]
+    for x in range(0, width + 50, 30):
+        fy = int(sky_h + 80 + math.sin(x * 0.007 + 3.0) * 65)
+        fore_pts.append((x, fy))
+    fore_pts.append((width, height))
+    h_draw.polygon(fore_pts, fill=(*pal["hill_fore"], 240))
+
+    # Delicate Wildflowers & Olive Sprigs at bottom
+    for _ in range(35):
+        fl_x = rng.randint(20, width - 20)
+        fl_y = rng.randint(int(sky_h + 120), height - 40)
+        fl_col = rng.choice([(255, 255, 255, 200), (255, 230, 160, 200), (240, 205, 220, 180)])
+        h_draw.ellipse([fl_x - 4, fl_y - 4, fl_x + 4, fl_y + 4], fill=fl_col)
+
+    # Olive branch silhouette across bottom corner
+    _draw_olive_branch(h_draw, sx=60, sy=height - 180, length=280)
+
+    hill_layer = hill_layer.filter(ImageFilter.GaussianBlur(radius=1.5))
+    img = Image.alpha_composite(img, hill_layer)
+
+    # 6. Fine Art Paper & Watercolor Bleed Grain
     grain_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     grain_bytes = bytearray(width * height * 4)
-    
-    # Fast pseudo noise for paper grain
     for idx in range(0, len(grain_bytes), 4):
-        val = rng.randint(0, 18)
-        grain_bytes[idx] = 180      # R
-        grain_bytes[idx + 1] = 175  # G
-        grain_bytes[idx + 2] = 165  # B
-        grain_bytes[idx + 3] = val  # Alpha grain
+        val = rng.randint(0, 22)
+        grain_bytes[idx] = 200
+        grain_bytes[idx + 1] = 195
+        grain_bytes[idx + 2] = 185
+        grain_bytes[idx + 3] = val
     grain_img = Image.frombytes("RGBA", (width, height), bytes(grain_bytes))
-    grain_img = grain_img.filter(ImageFilter.GaussianBlur(radius=0.7))
+    grain_img = grain_img.filter(ImageFilter.GaussianBlur(radius=0.8))
     img = Image.alpha_composite(img, grain_img)
-
-    # 5. Soft Inner Border / Frame (Giving an exquisite postcard feel)
-    border_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    b_draw = ImageDraw.Draw(border_layer)
-    margin = 55
-    b_draw.rectangle(
-        [margin, margin, width - margin, height - margin],
-        outline=(210, 202, 192, 90),
-        width=1,
-    )
-    img = Image.alpha_composite(img, border_layer)
 
     return img.convert("RGB")
 
 
 # ---------------------------------------------------------------------------
-# Master Imagen 3 API & Fallback Handler
+# Google GenAI Official SDK Imagen 3 Generator
 # ---------------------------------------------------------------------------
 
-def try_generate_via_imagen_api(
+def try_generate_via_google_genai_sdk(
     prompt: str,
     api_key: str,
     width: int = 1080,
     height: int = 1920,
 ) -> Optional[Image.Image]:
-    """Attempts generation via Google GenAI Imagen 3 API."""
+    """Calls Google Imagen 3 using official `google-genai` SDK."""
+    try:
+        from google import genai
+        from google.genai import types
+
+        logger.info("[Imagen 3] Initializing Google GenAI Client for image generation...")
+        client = genai.Client(api_key=api_key)
+
+        # Standard Google GenAI SDK call for Imagen 3
+        result = client.models.generate_images(
+            model="imagen-3.0-generate-002",
+            prompt=prompt,
+            config=types.GenerateImagesConfig(
+                number_of_images=1,
+                aspect_ratio="9:16",
+                output_mime_type="image/png",
+            ),
+        )
+
+        if result and result.generated_images:
+            img_bytes = result.generated_images[0].image.image_bytes
+            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+            if img.size != (width, height):
+                img = img.resize((width, height), Image.Resampling.LANCZOS)
+            logger.info("✓ [Imagen 3] Successfully generated breathtaking artwork via Official SDK!")
+            return img
+
+    except Exception as e:
+        logger.warning(f"[Imagen 3 SDK] SDK call failed ({e}). Trying REST fallback...")
+
+    # Secondary REST fallback with detailed error tracking
     endpoints = [
         f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key={api_key}",
         "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict",
@@ -200,7 +339,7 @@ def try_generate_via_imagen_api(
     headers = {
         "Content-Type": "application/json",
         "x-goog-api-key": api_key,
-        "User-Agent": "PoiemaArtworkBot/2.0"
+        "User-Agent": "PoiemaArtworkBot/3.0"
     }
 
     for ep in endpoints:
@@ -215,10 +354,10 @@ def try_generate_via_imagen_api(
                     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
                     if img.size != (width, height):
                         img = img.resize((width, height), Image.Resampling.LANCZOS)
-                    logger.info("✓ Successfully generated aesthetic background via Imagen 3 API!")
+                    logger.info("✓ [Imagen 3 REST] Successfully generated artwork via REST endpoint!")
                     return img
         except Exception as e:
-            logger.debug(f"Imagen endpoint failed: {e}")
+            logger.warning(f"[Imagen 3 REST] Endpoint failed: {e}")
 
     return None
 
@@ -232,22 +371,22 @@ def generate_unique_sacred_background(
     height: int = 1920,
     api_key: Optional[str] = None,
 ) -> Image.Image:
-    """Master generator: Produces an authentic, modern aesthetic background.
+    """Master Artwork Dispatcher:
     
-    1. Attempts Google Imagen 3 with creative editorial prompt.
-    2. Gracefully falls back to high-art procedural paper wash.
+    1. Tries Google Imagen 3 (Photography, Illustration, Symbolic, Anime, Storybook).
+    2. Falls back to bespoke procedural Christian painting (Dove, Olive, Light Rays, Rolling Hills).
+       NEVER a plain monochrome canvas!
     """
     gemini_key = api_key or os.getenv("GEMINI_API_KEY", "").strip()
 
     if gemini_key:
-        prompt = build_imagen_prompt(theme, visual_concept, form_factor=form_factor)
-        logger.info(f"[Visual Art Director] Requesting Imagen 3 with aesthetic prompt...")
-        ai_img = try_generate_via_imagen_api(prompt, gemini_key, width, height)
+        prompt = build_imagen_prompt(theme, visual_concept=visual_concept, form_factor=form_factor)
+        ai_img = try_generate_via_google_genai_sdk(prompt, gemini_key, width, height)
         if ai_img:
             return ai_img
 
-    logger.info(f"[Visual Art Director] Generating bespoke fine-art paper & watercolor background for '{theme}'...")
-    return generate_aesthetic_procedural_background(
+    logger.info(f"[Visual Art Director] Creating rich procedural Christian painting for '{theme}'...")
+    return generate_rich_procedural_sacred_artwork(
         date_str=date_str,
         theme=theme,
         form_factor=form_factor,
@@ -284,5 +423,5 @@ def generate_background_image(
         api_key=api_key,
     )
     bg_img.save(output_path, format="PNG")
-    logger.info(f"Saved background artwork to {output_path}")
+    logger.info(f"Saved rich background artwork to {output_path}")
     return output_path
