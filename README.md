@@ -1,28 +1,32 @@
-# 🕊️ 포이에마성령교회 일간 전도 및 말씀 광고 포스터 자동화 시스템
-> **Poiema Daily Gospel Poster Automation Pipeline**  
-> AI 멀티 에이전트(CrewAI) × 신학 3중 가드레일(TypeSafe AI Jev) × Google Imagen 3 × Pillow 정밀 렌더링 × Google Drive 클라우드 배포
+# 🕊️ 포이에마성령교회 일간 전도지·말씀카드·묵상엽서 자동화 시스템
+> **Poiema Daily Gospel Stationery & Cards Automation Pipeline**  
+> AI 멀티 에이전트(CrewAI) × 신학 3중 가드레일(TypeSafe AI Jev) × Google Imagen 3 감성 비주얼 × 수묵 캘리그래피 & 붉은 전각 렌더링 × Gmail 자동 발송
 
 ---
 
 ## 📌 프로젝트 개요 (Overview)
-본 시스템은 **포이에마성령교회**의 일간 전도 및 말씀 광고 포스터(9:16 세로형)를 매일 자동으로 기획·신학 검증·생성·배포하는 완전 자동화 파이프라인입니다.
-
-여러 대의 PC 환경(Antigravity IDE, 로컬 PC, GitHub Actions 클라우드 환경)에서 GitHub 리포지토리를 원활히 동기화하며 운영할 수 있도록 설계되었습니다.
+본 시스템은 **포이에마성령교회**의 일간 복음 전도 콘텐츠를 기존의 딱딱한 행사 포스터 틀에서 탈피하여, **감성 말씀 카드(Verse Card)**, **마음을 여는 스토리 전도지(Gospel Leaflet)**, **데일리 묵상 엽서(Devotional Postcard)** 등 현대적이고 소장하고 싶은 기독교 스테이셔너리 형태로 매일 자동 기획·신학 검증·생성·배포하는 완전 자동화 파이프라인입니다.
 
 ### ✨ 핵심 기능 및 아키텍처 특징
 1. **신학적 건전성 100% 보장 (3중 가드레일):**
    - **Tier 1 (로컬 블랙리스트):** 한국 4대 이단(신천지, 구원파, 하나님의교회, JMS 등) 특유 은어 및 교리 왜곡 키워드 고속 차단 (0ms).
    - **Tier 2 (TypeSafe AI Jev):** 정통 복음주의 교리 가이드라인을 주입한 Typed Decision 질의(`is_theologically_sound`, `risk_score`) 수행. 불합격 시 최대 3회 자동 재기획(Retry Loop).
    - **Tier 3 (성경 정합성):** 개역개정 정경 66권 인용 및 출처 무결성 검증.
-2. **무의존성 폰트 자동 설정 (Zero-Dependency Font Setup):**
-   - 수동 폰트 설치 불필요. 스크립트 실행 시 검증된 상업용 무료 오픈소스 폰트(OFL)를 공식 GitHub 리포지토리에서 자동 다운로드 (`PyeongChangPeace-Bold.otf`, `Pretendard-Bold.otf`, `Pretendard-Regular.otf`).
-3. **Google Imagen 3 시네마틱 배경 & Pillow 정밀 그래픽 합성:**
-   - 텍스트 오버레이 영역을 배려한 상단 여백 확보 및 천상의 빛 프롬프트 자동 구성.
-   - Pillow를 통한 대형 캘리그라피 헤드라인(드롭 섀도우), 골드 브러시 뱃지, 반투명 글래스모피즘 카드, 성경 구절 오버레이.
-4. **유연한 교회 브랜딩 토글:**
-   - `config.yaml`의 `show_contact` 토글(`true`/`false`) 또는 환경변수 `SHOW_CHURCH_CONTACT`를 통해 교회 이름만 노출하거나 연락처를 포함하도록 조건부 렌더링.
-5. **클라우드 연동 및 히스토리 관리:**
-   - 완성된 포스터를 Google Drive 지정 폴더에 자동 업로드하고, `WORKLOG.md`를 갱신하여 여러 PC 간 작업 히스토리를 Git으로 자동 동기화.
+2. **다채로운 3대 폼팩터 자동 조판:**
+   - **감성 말씀 카드 (Verse Card):** 핵심 구절 중심의 깊은 여백, 춤추듯 유려한 대형 캘리그래피, 정갈한 명조체 묵상.
+   - **스토리 전도지 (Gospel Leaflet):** 일상의 공허와 지친 마음에 건네는 공감 에세이, 약속의 말씀 카드, 따뜻한 교회 환영.
+   - **데일리 묵상 엽서 (Devotional Postcard):** 하루를 여는 성령의 임재 묵상 선포, 언약의 말씀, '오늘의 기도' 엽서 디자인.
+3. **진짜 붓으로 그린 듯한 수묵 캘리그래피 & 붉은 전각(낙관 도장):**
+   - 타자기식 폰트 나열을 탈피하여, 핵심 단어 필압 확대(1.5~1.8배) 및 유기적 리듬 조판.
+   - 화선지에 스며든 먹물 번짐(Ink Bleed & Wash) 효과.
+   - 우측 하단에 전통 수제 붉은 낙관 전각(`포이에마`, `은혜`, `말씀`) 자동 날인.
+4. **무의존성 감성 폰트 자동 설정 (Zero-Dependency Font Setup):**
+   - 캘리 헤드라인: `PyeongChangPeace-Bold.otf` (평창평화체)
+   - 감성 본문 명조: `MaruBuri-Regular.ttf`, `MaruBuri-Bold.ttf` (네이버 마루부리 글꼴)
+   - 영문 및 서브: `Pretendard`
+5. **Google Imagen 3 에디토리얼 비주얼 & 고품격 한지 프로시저럴 폴백:**
+   - 킨포크 에디토리얼, 35mm 내추럴 라이트, 린넨 패브릭, 잔잔한 호수 등 클리셰를 탈피한 감성 사진 프롬프트.
+   - 오트밀/크림/세이지 톤의 수제 한지 텍스처 및 수채화 번짐 프로시저럴 렌더링.
 
 ---
 

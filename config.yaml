@@ -7,9 +7,15 @@ church:
 
 fonts:
   dir: "fonts"
-  headline: "PyeongChangPeace-Bold.otf"
-  body_bold: "Pretendard-Bold.otf"
-  body_regular: "Pretendard-Regular.otf"
+  headline: "PyeongChangPeace-Bold.otf"   # 캘리그라피 헤드라인
+  serif_bold: "MaruBuri-Bold.ttf"        # 감성 명조 볼드 (성경 출처/강조)
+  serif_regular: "MaruBuri-Regular.ttf"  # 감성 명조 레귤러 (성경 본문/에세이)
+  body_bold: "Pretendard-Bold.otf"        # 산세리프 볼드
+  body_regular: "Pretendard-Regular.otf"  # 산세리프 레귤러
+
+stationery:
+  default_form_factor: "verse_card"      # verse_card, gospel_leaflet, devotional_postcard
+  seal_stamp_text: "포이에마"             # 붉은 수제 전각(낙관 도장) 텍스트
 
 guardrails:
   typesafe:

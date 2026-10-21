@@ -24,6 +24,12 @@ FONT_SOURCES: Dict[str, str] = {
     "Pretendard-Regular.otf": (
         "https://github.com/orioncactus/pretendard/raw/main/packages/pretendard/dist/public/static/Pretendard-Regular.otf"
     ),
+    "MaruBuri-Regular.ttf": (
+        "https://github.com/fonts-archive/MaruBuri/raw/main/MaruBuri-Regular.ttf"
+    ),
+    "MaruBuri-Bold.ttf": (
+        "https://github.com/fonts-archive/MaruBuri/raw/main/MaruBuri-Bold.ttf"
+    ),
 }
 
 # Fallback mirrors in case primary raw GitHub is rate-limited or blocked
@@ -36,6 +42,12 @@ FONT_FALLBACK_SOURCES: Dict[str, str] = {
     ),
     "Pretendard-Regular.otf": (
         "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/public/static/Pretendard-Regular.otf"
+    ),
+    "MaruBuri-Regular.ttf": (
+        "https://cdn.jsdelivr.net/gh/fonts-archive/MaruBuri/MaruBuri-Regular.ttf"
+    ),
+    "MaruBuri-Bold.ttf": (
+        "https://cdn.jsdelivr.net/gh/fonts-archive/MaruBuri/MaruBuri-Bold.ttf"
     ),
 }
 

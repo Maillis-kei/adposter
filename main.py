@@ -50,6 +50,13 @@ def parse_args() -> argparse.Namespace:
         help="생성할 말씀 포스터의 특정 주제 (미지정 시 WORKLOG 참고 후 자동 기획)",
     )
     parser.add_argument(
+        "--form-factor",
+        type=str,
+        choices=["verse_card", "gospel_leaflet", "devotional_postcard"],
+        default=None,
+        help="폼팩터 지정 (verse_card: 감성 말씀카드, gospel_leaflet: 스토리 전도지, devotional_postcard: 묵상 엽서)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="클라우드 업로드 없이 로컬 생성 및 합성만 테스트",
@@ -88,11 +95,13 @@ def main() -> int:
         orchestrator = PosterPipelineOrchestrator(config_path=config_path)
         result = orchestrator.execute_full_pipeline(
             topic_override=args.topic,
+            form_factor_override=args.form_factor,
             dry_run=dry_run,
         )
 
         logger.info("\n" + "=" * 60)
-        logger.info("🎉 포스터 생성 및 검증 파이프라인이 성공적으로 완료되었습니다!")
+        logger.info("🎉 포스터/말씀카드 생성 및 검증 파이프라인이 성공적으로 완료되었습니다!")
+        logger.info(f"■ 폼팩터: {result.get('form_factor')}")
         logger.info(f"■ 주제: {result.get('theme')}")
         logger.info(f"■ 메인 헤드라인: {result.get('headline')}")
         logger.info(f"■ 결과물 경로: {result.get('poster_path')}")

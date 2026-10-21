@@ -31,12 +31,18 @@ class PosterPoint(BaseModel):
 
 
 class PosterContent(BaseModel):
+    form_factor: str = Field(default="verse_card", description="폼팩터 (verse_card, gospel_leaflet, devotional_postcard)")
     date_str: str = Field(default="", description="표기 날짜 (예: 2026.10.21)")
     theme: str = Field(description="주제 (예: 성령 충만, 은혜, 동행 등)")
     headline: str = Field(description="대형 캘리그라피 메인 헤드라인")
+    calligraphy_emphasis: List[str] = Field(default_factory=list, description="캘리그래피로 굵게 강조할 핵심 단어들")
     sub_headline: str = Field(default="", description="헤드라인 보조 문구")
-    points: List[PosterPoint] = Field(description="3~4개의 핵심 포인트")
-    call_to_action: str = Field(description="결단 및 축복의 한 줄 문구")
+    scripture_ref: str = Field(default="", description="성경 말씀 출처")
+    scripture_text: str = Field(default="", description="성경 본문 말씀")
+    meditation: str = Field(default="", description="묵상 또는 감성 에세이 본문")
+    points: List[PosterPoint] = Field(default_factory=list, description="선택적 포인트 리스트")
+    call_to_action: str = Field(default="", description="결단 및 축복의 한 줄 문구")
+    visual_concept: str = Field(default="", description="비주얼 콘셉트 영문 묘사")
 
 
 class TheologyAuditResult(BaseModel):
