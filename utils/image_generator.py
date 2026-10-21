@@ -1,19 +1,14 @@
-"""Aesthetic Background Generation Module (Multi-Genre Christian Artwork Engine).
+"""Aesthetic Background Generation Module (Powered by Pollinations FLUX.1 AI & Fallback Art).
 
-Supports 5 diverse visual genres tailored to user desires:
-1. Cinematic & Editorial Photography (실사형 사진):
-   - Natural 35mm sunlight, serene sanctuary, olive branches on wood, calm lake at sunrise.
-2. Modern Christian Illustration (감성 일러스트):
-   - Warm gouache & oil-pastel textures, peaceful pastoral landscapes, gentle brushstrokes.
-3. Sacred Symbolic Art (상징 및 심벌 아트):
-   - Radiant Holy Spirit Dove, Olive Branches of Peace, Living Waters, Glowing Cross, Golden Wheat.
-4. Anime Sacred Aesthetic (감성 애니메이션):
-   - Vast luminous pastel skies, Makoto Shinkai / Ghibli inspired celestial clouds, heavenly light.
-5. Whimsical Storybook Art (따뜻한 동화 그림):
-   - Children's storybook watercolor, gentle shepherd & flock, cozy peaceful biblical meadow.
-
-Uses Google Imagen 3 official SDK (`client.models.generate_images`), and features a rich procedural
-sacred illustration engine (Dove, Olive, Rays, Hills) so it is NEVER a plain monochrome background!
+Official Engine: Pollinations.ai (https://pollinations.ai)
+- Model: FLUX.1 (Black Forest Labs state-of-the-art text-to-image engine)
+- 100% Free, Zero-API-Key, Zero-Config, Instant high-quality Christian artwork.
+- Supports 5 diverse visual genres:
+  1. Photography (실사 35mm 감성 사진)
+  2. Illustration (감성 수채화/오일파스텔 일러스트)
+  3. Symbolic (성령의 비둘기, 십자가, 올리브 심벌 아트)
+  4. Anime (지브리/신카이 마코토 감성 맑은 하늘)
+  5. Storybook (따뜻한 동화책 그림, 목자와 양 떼)
 """
 
 from datetime import datetime
@@ -26,6 +21,7 @@ import os
 from pathlib import Path
 import random
 from typing import Any, Dict, List, Optional, Tuple
+import urllib.parse
 import urllib.request
 from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
@@ -33,27 +29,27 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# 5 Rich Visual Genres for Imagen 3
+# 5 Rich Visual Genres for FLUX.1
 # ---------------------------------------------------------------------------
 
 VISUAL_GENRES = {
     "photography": (
-        "Breathtaking editorial still-life photography. "
-        "A peaceful sanctuary setting bathed in warm morning sunlight streaming in through tall arched windows, "
-        "natural wooden texture, delicate fresh olive branches and white lilies casting gentle shadows, "
-        "warm glowing ambiance, highly aesthetic, 35mm film photography, 8k resolution, "
-        "ample negative space in upper area for Korean calligraphy, strictly NO text, NO letters, NO watermark."
+        "Breathtaking editorial still-life photography for Christian background. "
+        "A peaceful sanctuary room bathed in warm morning sunlight streaming through arched windows, "
+        "natural aged wood, fresh olive branches and white lilies casting soft gentle shadows, "
+        "warm glowing ambiance, highly aesthetic, 35mm cinematic film photo, spacious negative space at top, "
+        "masterpiece, strictly NO text, NO letters, NO words, NO watermark."
     ),
     "illustration": (
-        "A stunning, warm modern Christian editorial illustration with rich oil pastel and gouache textures. "
+        "A stunning, warm modern Christian editorial illustration with rich gouache and oil pastel textures. "
         "A peaceful sacred landscape under a majestic dawn, radiant divine light filtering softly through gentle trees, "
         "serene pathway of peace, comforting earthy pastel tones, artistic masterpiece, "
-        "plenty of serene negative space, strictly NO text, NO letters, NO characters."
+        "clean negative space for typography, strictly NO text, NO letters, NO characters."
     ),
     "symbolic": (
         "An exquisite sacred Christian symbolic artwork. "
-        "A radiant white dove of the Holy Spirit gracefully descending with an olive branch of peace, "
-        "surrounded by subtle celestial golden light beams and soft glowing particles, "
+        "A glowing radiant white dove of the Holy Spirit gracefully descending with an olive branch of peace, "
+        "surrounded by soft celestial golden light beams and subtle holy particles, "
         "majestic, deeply spiritual and reverent, artistic minimalism, beautiful negative space, "
         "masterpiece quality, strictly NO text, NO letters, NO watermark."
     ),
@@ -73,27 +69,74 @@ VISUAL_GENRES = {
 }
 
 
-def build_imagen_prompt(theme: str, visual_concept: str = "", form_factor: str = "verse_card") -> str:
-    """Dynamically rotates and blends visual genres to produce rich, imaginative art."""
-    # Seed by theme to ensure deterministic yet diverse choices
-    seed_idx = int(hashlib.md5(f"{theme}_{datetime.now().strftime('%Y%m%d')}".encode()).hexdigest(), 16)
+def build_flux_prompt(theme: str, visual_concept: str = "", form_factor: str = "verse_card") -> Tuple[str, str]:
+    """Dynamically rotates and blends visual genres to produce rich FLUX.1 prompts."""
+    seed_idx = int(hashlib.md5(f"{theme}_{datetime.now().strftime('%Y%m%d%H')}".encode()).hexdigest(), 16)
     genre_keys = list(VISUAL_GENRES.keys())
     chosen_genre = genre_keys[seed_idx % len(genre_keys)]
     base_genre_prompt = VISUAL_GENRES[chosen_genre]
 
-    concept_str = f"Theme: '{theme}'. {visual_concept}." if visual_concept else f"Theme: '{theme}'."
-    logger.info(f"[Visual Art Director] Selected Visual Genre: '{chosen_genre.upper()}' for '{theme}'")
+    concept_str = f"Christian theme of '{theme}'. {visual_concept}." if visual_concept else f"Christian theme of '{theme}'."
+    prompt = f"{concept_str} {base_genre_prompt}"
+    return prompt, chosen_genre
 
-    return f"{concept_str} {base_genre_prompt}"
+
+def build_imagen_prompt(theme: str, visual_concept: str = "", form_factor: str = "verse_card") -> str:
+    """Backward compatibility alias for crew_setup."""
+    prompt, _ = build_flux_prompt(theme, visual_concept=visual_concept, form_factor=form_factor)
+    return prompt
 
 
 # ---------------------------------------------------------------------------
-# Rich Procedural Artwork Engine (NEVER PLAIN MONOCHROME!)
+# Pollinations FLUX.1 Engine Invocation
+# ---------------------------------------------------------------------------
+
+def try_generate_via_pollinations_flux(
+    prompt: str,
+    seed: int,
+    width: int = 1080,
+    height: int = 1920,
+    timeout: int = 45,
+) -> Optional[Image.Image]:
+    """Generates a high-resolution artwork via Pollinations.ai FLUX.1 engine."""
+    try:
+        encoded_prompt = urllib.parse.quote(prompt)
+        # Request high-definition aspect ratio
+        req_w = 768
+        req_h = 1344
+        url = (
+            f"https://image.pollinations.ai/prompt/{encoded_prompt}"
+            f"?width={req_w}&height={req_h}&model=flux&seed={seed}&nologo=true"
+        )
+        logger.info(f"[Pollinations FLUX.1] Requesting generation (seed: {seed})...")
+
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 PoiemaStationeryBot/1.0"
+            )
+        }
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = resp.read()
+            img = Image.open(io.BytesIO(data)).convert("RGB")
+            # Upscale/Resize to exact canvas target (1080x1920)
+            if img.size != (width, height):
+                img = img.resize((width, height), Image.Resampling.LANCZOS)
+            logger.info(f"✓ [Pollinations FLUX.1] Successfully generated authentic artwork ({img.size})!")
+            return img
+
+    except Exception as e:
+        logger.warning(f"[Pollinations FLUX.1] Generation attempt failed: {e}")
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Rich Procedural Artwork Fallback Engine
 # ---------------------------------------------------------------------------
 
 def _draw_sacred_dove_silhouette(draw: ImageDraw.ImageDraw, cx: int, cy: int, scale: float = 1.0) -> None:
     """Draws a graceful descending dove of the Holy Spirit with soft glowing wings."""
-    # Wing Left
     w_left = [
         (cx, cy),
         (cx - int(70 * scale), cy - int(55 * scale)),
@@ -102,7 +145,6 @@ def _draw_sacred_dove_silhouette(draw: ImageDraw.ImageDraw, cx: int, cy: int, sc
         (cx - int(90 * scale), cy - int(30 * scale)),
         (cx - int(30 * scale), cy - int(10 * scale)),
     ]
-    # Wing Right
     w_right = [
         (cx, cy),
         (cx + int(70 * scale), cy - int(55 * scale)),
@@ -111,23 +153,20 @@ def _draw_sacred_dove_silhouette(draw: ImageDraw.ImageDraw, cx: int, cy: int, sc
         (cx + int(90 * scale), cy - int(30 * scale)),
         (cx + int(30 * scale), cy - int(10 * scale)),
     ]
-    # Body & Tail
     body = [
-        (cx, cy - int(25 * scale)),    # head
+        (cx, cy - int(25 * scale)),
         (cx + int(12 * scale), cy),
         (cx + int(15 * scale), cy + int(45 * scale)),
-        (cx + int(28 * scale), cy + int(90 * scale)),  # tail right
-        (cx, cy + int(75 * scale)),                    # tail center
-        (cx - int(28 * scale), cy + int(90 * scale)),  # tail left
+        (cx + int(28 * scale), cy + int(90 * scale)),
+        (cx, cy + int(75 * scale)),
+        (cx - int(28 * scale), cy + int(90 * scale)),
         (cx - int(15 * scale), cy + int(45 * scale)),
         (cx - int(12 * scale), cy),
     ]
 
-    # Soft glowing dove color (warm white with soft golden rim)
     draw.polygon(w_left, fill=(255, 253, 245, 180))
     draw.polygon(w_right, fill=(255, 253, 245, 180))
     draw.polygon(body, fill=(255, 255, 250, 220))
-    # Head
     draw.ellipse(
         [cx - int(10 * scale), cy - int(35 * scale), cx + int(10 * scale), cy - int(15 * scale)],
         fill=(255, 255, 250, 230),
@@ -142,12 +181,9 @@ def _draw_olive_branch(draw: ImageDraw.ImageDraw, sx: int, sy: int, length: int 
         x = sx + int(t * length)
         y = sy + int(math.sin(t * 3.14) * 35)
         stem_pts.append((x, y))
-        
-        # Leaves along the stem
         if i % 2 == 1:
             lx = x
             ly = y - 18
-            # Olive leaf
             draw.ellipse([lx - 16, ly - 8, lx + 16, ly + 8], fill=(135, 155, 120, 150))
             draw.ellipse([lx - 12, ly + 14, lx + 12, ly + 26], fill=(115, 138, 102, 140))
 
@@ -162,24 +198,13 @@ def generate_rich_procedural_sacred_artwork(
     width: int = 1080,
     height: int = 1920,
 ) -> Image.Image:
-    """Generates an illustrative, richly detailed Christian artwork.
-    
-    Contains:
-    - Celestial Dawn Atmosphere & Light Rays
-    - Rolling watercolor hills and wildflower meadow
-    - Ascending Holy Spirit Dove & Olive branch
-    - Fine art watercolor & paper grain texture
-    """
+    """Fallback generator: Produces an illustrative, painterly Christian artwork."""
     seed_val = int(hashlib.md5(f"{date_str}_{theme}".encode()).hexdigest(), 16)
     rng = random.Random(seed_val)
 
-    # 1. Scenic Color Palette
     palettes = [
-        # Dawn Serenity (Sky blue to warm peach dawn)
         {"sky_top": (145, 185, 220), "sky_mid": (235, 215, 200), "sky_dawn": (255, 228, 195), "hill_back": (160, 180, 160), "hill_fore": (105, 135, 105)},
-        # Golden Hour Sanctuary (Warm golden ochre to soft lilac)
         {"sky_top": (185, 175, 205), "sky_mid": (245, 210, 180), "sky_dawn": (255, 235, 190), "hill_back": (180, 160, 135), "hill_fore": (125, 105, 80)},
-        # Fresh Living Waters (Misty sage to crystal morning)
         {"sky_top": (160, 200, 205), "sky_mid": (220, 235, 225), "sky_dawn": (250, 245, 220), "hill_back": (140, 175, 155), "hill_fore": (85, 120, 95)},
     ]
     pal = palettes[seed_val % len(palettes)]
@@ -187,7 +212,6 @@ def generate_rich_procedural_sacred_artwork(
     img = Image.new("RGBA", (width, height), (255, 255, 255, 255))
     draw = ImageDraw.Draw(img)
 
-    # 2. Painterly Sky Gradient (Top 65%)
     sky_h = int(height * 0.72)
     for y in range(sky_h):
         ratio = y / sky_h
@@ -203,18 +227,15 @@ def generate_rich_procedural_sacred_artwork(
             b = int(pal["sky_mid"][2] * (1 - lr) + pal["sky_dawn"][2] * lr)
         draw.line([(0, y), (width, y)], fill=(r, g, b, 255))
 
-    # 3. Celestial God-Rays (Streaming down gently)
     ray_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     r_draw = ImageDraw.Draw(ray_layer)
     sun_x = int(width * rng.uniform(0.35, 0.65))
     sun_y = int(sky_h * 0.35)
 
-    # Sun divine glow
     for rad in range(400, 20, -30):
         alpha = int(55 * (1 - (rad / 400) ** 1.2))
         r_draw.ellipse([sun_x - rad, sun_y - rad, sun_x + rad, sun_y + rad], fill=(255, 250, 225, alpha))
 
-    # Beams of light
     for i in range(-5, 6):
         angle = i * 0.12
         ray_pts = [
@@ -227,7 +248,6 @@ def generate_rich_procedural_sacred_artwork(
     ray_layer = ray_layer.filter(ImageFilter.GaussianBlur(radius=30))
     img = Image.alpha_composite(img, ray_layer)
 
-    # 4. Sacred Dove of the Holy Spirit (Center top-right or center-left)
     dove_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     d_draw = ImageDraw.Draw(dove_layer)
     dove_x = sun_x + int(rng.choice([-1, 1]) * rng.randint(80, 180))
@@ -236,11 +256,9 @@ def generate_rich_procedural_sacred_artwork(
     dove_layer = dove_layer.filter(ImageFilter.GaussianBlur(radius=1.5))
     img = Image.alpha_composite(img, dove_layer)
 
-    # 5. Distant Watercolor Mountain & Rolling Hills (Bottom 35%)
     hill_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     h_draw = ImageDraw.Draw(hill_layer)
 
-    # Distant hill
     back_pts = [(0, height)]
     for x in range(0, width + 50, 40):
         hy = int(sky_h - 40 + math.sin(x * 0.005 + 1.2) * 55)
@@ -248,7 +266,6 @@ def generate_rich_procedural_sacred_artwork(
     back_pts.append((width, height))
     h_draw.polygon(back_pts, fill=(*pal["hill_back"], 210))
 
-    # Foreground hill with warmth
     fore_pts = [(0, height)]
     for x in range(0, width + 50, 30):
         fy = int(sky_h + 80 + math.sin(x * 0.007 + 3.0) * 65)
@@ -256,20 +273,17 @@ def generate_rich_procedural_sacred_artwork(
     fore_pts.append((width, height))
     h_draw.polygon(fore_pts, fill=(*pal["hill_fore"], 240))
 
-    # Delicate Wildflowers & Olive Sprigs at bottom
     for _ in range(35):
         fl_x = rng.randint(20, width - 20)
         fl_y = rng.randint(int(sky_h + 120), height - 40)
         fl_col = rng.choice([(255, 255, 255, 200), (255, 230, 160, 200), (240, 205, 220, 180)])
         h_draw.ellipse([fl_x - 4, fl_y - 4, fl_x + 4, fl_y + 4], fill=fl_col)
 
-    # Olive branch silhouette across bottom corner
     _draw_olive_branch(h_draw, sx=60, sy=height - 180, length=280)
 
     hill_layer = hill_layer.filter(ImageFilter.GaussianBlur(radius=1.5))
     img = Image.alpha_composite(img, hill_layer)
 
-    # 6. Fine Art Paper & Watercolor Bleed Grain
     grain_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     grain_bytes = bytearray(width * height * 4)
     for idx in range(0, len(grain_bytes), 4):
@@ -286,81 +300,8 @@ def generate_rich_procedural_sacred_artwork(
 
 
 # ---------------------------------------------------------------------------
-# Google GenAI Official SDK Imagen 3 Generator
+# Master Background Dispatcher
 # ---------------------------------------------------------------------------
-
-def try_generate_via_google_genai_sdk(
-    prompt: str,
-    api_key: str,
-    width: int = 1080,
-    height: int = 1920,
-) -> Optional[Image.Image]:
-    """Calls Google Imagen 3 using official `google-genai` SDK."""
-    try:
-        from google import genai
-        from google.genai import types
-
-        logger.info("[Imagen 3] Initializing Google GenAI Client for image generation...")
-        client = genai.Client(api_key=api_key)
-
-        # Standard Google GenAI SDK call for Imagen 3
-        result = client.models.generate_images(
-            model="imagen-3.0-generate-002",
-            prompt=prompt,
-            config=types.GenerateImagesConfig(
-                number_of_images=1,
-                aspect_ratio="9:16",
-                output_mime_type="image/png",
-            ),
-        )
-
-        if result and result.generated_images:
-            img_bytes = result.generated_images[0].image.image_bytes
-            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-            if img.size != (width, height):
-                img = img.resize((width, height), Image.Resampling.LANCZOS)
-            logger.info("✓ [Imagen 3] Successfully generated breathtaking artwork via Official SDK!")
-            return img
-
-    except Exception as e:
-        logger.warning(f"[Imagen 3 SDK] SDK call failed ({e}). Trying REST fallback...")
-
-    # Secondary REST fallback with detailed error tracking
-    endpoints = [
-        f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key={api_key}",
-        "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict",
-    ]
-
-    payload = json.dumps({
-        "instances": [{"prompt": prompt}],
-        "parameters": {"sampleCount": 1, "aspectRatio": "9:16"}
-    }).encode("utf-8")
-
-    headers = {
-        "Content-Type": "application/json",
-        "x-goog-api-key": api_key,
-        "User-Agent": "PoiemaArtworkBot/3.0"
-    }
-
-    for ep in endpoints:
-        try:
-            req = urllib.request.Request(ep, data=payload, headers=headers)
-            with urllib.request.urlopen(req, timeout=40) as resp:
-                data = json.loads(resp.read().decode())
-                preds = data.get("predictions", [])
-                if preds and "bytesBase64Encoded" in preds[0]:
-                    import base64
-                    img_bytes = base64.b64decode(preds[0]["bytesBase64Encoded"])
-                    img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-                    if img.size != (width, height):
-                        img = img.resize((width, height), Image.Resampling.LANCZOS)
-                    logger.info("✓ [Imagen 3 REST] Successfully generated artwork via REST endpoint!")
-                    return img
-        except Exception as e:
-            logger.warning(f"[Imagen 3 REST] Endpoint failed: {e}")
-
-    return None
-
 
 def generate_unique_sacred_background(
     date_str: str,
@@ -371,21 +312,21 @@ def generate_unique_sacred_background(
     height: int = 1920,
     api_key: Optional[str] = None,
 ) -> Image.Image:
-    """Master Artwork Dispatcher:
-    
-    1. Tries Google Imagen 3 (Photography, Illustration, Symbolic, Anime, Storybook).
-    2. Falls back to bespoke procedural Christian painting (Dove, Olive, Light Rays, Rolling Hills).
-       NEVER a plain monochrome canvas!
-    """
-    gemini_key = api_key or os.getenv("GEMINI_API_KEY", "").strip()
+    """Master generator: Uses Pollinations FLUX.1 AI, with rich procedural backup."""
+    seed_val = int(hashlib.md5(f"{date_str}_{theme}".encode()).hexdigest(), 16) % 1000000
+    prompt, genre = build_flux_prompt(theme, visual_concept=visual_concept, form_factor=form_factor)
 
-    if gemini_key:
-        prompt = build_imagen_prompt(theme, visual_concept=visual_concept, form_factor=form_factor)
-        ai_img = try_generate_via_google_genai_sdk(prompt, gemini_key, width, height)
-        if ai_img:
-            return ai_img
+    logger.info(f"[Visual Art Director] Requesting FLUX.1 AI with genre: '{genre.upper()}'...")
+    ai_img = try_generate_via_pollinations_flux(
+        prompt=prompt,
+        seed=seed_val,
+        width=width,
+        height=height,
+    )
+    if ai_img is not None:
+        return ai_img
 
-    logger.info(f"[Visual Art Director] Creating rich procedural Christian painting for '{theme}'...")
+    logger.info(f"[Visual Art Director] Using rich procedural Christian painting for '{theme}'...")
     return generate_rich_procedural_sacred_artwork(
         date_str=date_str,
         theme=theme,
@@ -423,5 +364,5 @@ def generate_background_image(
         api_key=api_key,
     )
     bg_img.save(output_path, format="PNG")
-    logger.info(f"Saved rich background artwork to {output_path}")
+    logger.info(f"Saved artwork to {output_path}")
     return output_path
